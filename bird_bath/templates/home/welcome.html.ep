@@ -43,21 +43,30 @@
 		});
 	</script>
 	<div class="application" ng-controller="BirdBath" ng-app="birdbath">
+		<h2>Post a tweet</h2>
+		<div class="post_tweet">
+			<div class="input-group">
+				<input type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
+				<span class="input-group-btn">
+					<button ng-click="sendTweet()" class="btn btn-default">Post</button>
+				</span>
+			</div>
+		</div>
+
 		<h2>Accounts</h2>
 		<ul>
 			<li ng-repeat="account in accounts">{{ account.screen_name }}</li>
 		</ul>
+
 		<h2>Tweets</h2>
-		<div class="post_tweet">
-			<input type="text" ng-model="message" /> <button ng-click="sendTweet()">Post</button>
-		</div>
-		<table>
+		<table class="table">
 			<tr>
 				<th>Posted by</th>
 				<th>Message</th>
 				<th>Created</th>
 				<th>Actions</th>
 				<th>Approved</th>
+				<th>Approved by</th>
 			</tr>
 			<tr ng-repeat="tweet in tweets">
 				<td><img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=36" /> {{ tweet.user.name }}</td>
@@ -78,5 +87,5 @@
 		</table>
 	</div>
 % } else {
-	Please login.
+	<h3 style="text-align: center; margin-top: 40px"><a href="/github">Login using GitHub to continue</a></h3>
 % }

@@ -5,19 +5,48 @@
   	<script src="//code.jquery.com/jquery-1.10.1.min.js"></script>
   	<script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.7/angular.js"></script>
   	<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment-with-langs.js"></script>
+  	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.css" />
+  	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap-theme.css" />
+  	<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.js"></script>
   </head>
   <body>
-  	% if($user) {
-  		<img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=36" />
-  		<%= $user->{name} %>
-  		<a href="/twitter">Add a twitter account</a>
-  		<a href="/logout">Logout</a>
-  		% if($user->{_birdbath}->{role} eq 'Admin') {
-  		<a href="/admin">Admin</a>
-  		% }
-  	% } else {
-  		<a href="/github">Login with GitHub</a>
-  	% }
-  	<%= content %>
+  	<div class="container">
+	  	<nav class="navbar navbar-default" role="navigation" style="margin-top: 10px">
+		  <!-- Brand and toggle get grouped for better mobile display -->
+		  <div class="navbar-header">
+		    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+		      <span class="sr-only">Toggle navigation</span>
+		      <span class="icon-bar"></span>
+		      <span class="icon-bar"></span>
+		      <span class="icon-bar"></span>
+		    </button>
+		    <a class="navbar-brand" href="#">BirdBath</a>
+		  </div>
+
+		  <!-- Collect the nav links, forms, and other content for toggling -->
+		  <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+		    <ul class="nav navbar-nav navbar-right">
+		    % if(!$user) {
+		      <li><a href="/github">Login with GitHub</a></li>
+		    % } else {
+		      <li class="dropdown">
+		        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=18" style="margin-right: 4px" /> <%= $user->{name} %> <b class="caret"></b></a>
+		        <ul class="dropdown-menu">		          
+		          <li><a href="/twitter">Add twitter account</a></li>
+		          % if($user->{_birdbath}->{role} eq 'Admin') {
+			  		<li><a href="/admin">Admin</a></li>
+			  	  % }
+		          <li class="divider"></li>
+		          <li><a href="/logout">Logout</a></li>
+		        </ul>
+		      </li>
+		    % }
+		    </ul>
+		  </div><!-- /.navbar-collapse -->
+		</nav>
+  		<div class="content">
+	  		<%= content %>
+	  	</div>
+	</div>
   </body>
 </html>
