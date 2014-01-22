@@ -1,0 +1,82 @@
+% layout 'default';
+% title 'Welcome';
+% if($user) {
+	<script>
+
+		var birdbath = angular.module('birdbath', []);
+		birdbath.controller('BirdBath', function ($scope, $http, $q, $location, $timeout) {
+			$scope.tweets = [];
+			$scope.accounts = [];
+
+			$scope.fromNow = function(date) {
+				return moment(date).fromNow();
+			}
+
+			$scope.getTweets = function() {
+				$http.get('/tweets').success(function(d) {
+					$scope.tweets = d;
+				});
+			};
+			$scope.getTweets();
+
+			$scope.getAccounts = function() {
+				$http.get('/accounts').success(function(d) {
+					$scope.accounts = d;
+				});
+			};
+			$scope.getAccounts();
+
+			$scope.sendTweet = function() {
+				$http.post('/tweets', { message: $scope.message }).success(function(d) {
+					$scope.message = "";
+					$scope.getTweets();
+				});
+			};
+
+			$scope.approve = function(tweet) {
+				$http.post('/approve', { tweet: tweet._id }).success(function(d) {
+					for(var v in d) {
+						tweet[v] = d[v];
+					}
+				});
+			}
+		});
+	</script>
+	<div class="application" ng-controller="BirdBath" ng-app="birdbath">
+		<h2>Accounts</h2>
+		<ul>
+			<li ng-repeat="account in accounts">{{ account.screen_name }}</li>
+		</ul>
+		<h2>Tweets</h2>
+		<div class="post_tweet">
+			<input type="text" ng-model="message" /> <button ng-click="sendTweet()">Post</button>
+		</div>
+		<table>
+			<tr>
+				<th>Posted by</th>
+				<th>Message</th>
+				<th>Created</th>
+				<th>Actions</th>
+				<th>Approved</th>
+			</tr>
+			<tr ng-repeat="tweet in tweets">
+				<td><img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=36" /> {{ tweet.user.name }}</td>
+				<td>{{ tweet.message }}</td>
+				<td>{{ tweet.status }}</td>
+				<td>{{ fromNow(tweet.created) }}</td>
+				<td>
+					% if($user->{_birdbath}->{role} ne 'Contributor') {
+						<button ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
+					% }
+				</td>
+				<td>
+					<div ng-if="tweet.approved">
+						<img src="//gravatar.com/avatar/{{ tweet.approved_by.gravatar_id }}?s=36" /> {{ tweet.approved_by.name }}
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+% } else {
+	Please login.
+% }

@@ -1,2 +1,5 @@
+requires 'IO::Socket::SSL';
 requires 'Mojolicious';
 requires 'Mango';
+requires 'MIME::Base64';
+requires 'Net::Twitter';

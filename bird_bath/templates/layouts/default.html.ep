@@ -1,5 +1,23 @@
 <!DOCTYPE html>
 <html>
-  <head><title>BirdBath - <%= title %></title></head>
-  <body><%= content %></body>
+  <head>
+  	<title>BirdBath - <%= title %></title>
+  	<script src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+  	<script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.7/angular.js"></script>
+  	<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment-with-langs.js"></script>
+  </head>
+  <body>
+  	% if($user) {
+  		<img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=36" />
+  		<%= $user->{name} %>
+  		<a href="/twitter">Add a twitter account</a>
+  		<a href="/logout">Logout</a>
+  		% if($user->{_birdbath}->{role} eq 'Admin') {
+  		<a href="/admin">Admin</a>
+  		% }
+  	% } else {
+  		<a href="/github">Login with GitHub</a>
+  	% }
+  	<%= content %>
+  </body>
 </html>
