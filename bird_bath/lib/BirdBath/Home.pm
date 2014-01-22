@@ -57,7 +57,6 @@ sub tweets {
 				$doc->{edited_by} = $doc->{edits}->[-1]->{edited_by};
 			}
 		}
-		use Data::Dumper; print Dumper $docs;
 
 		$self->render(json => $docs);
 	});
@@ -141,57 +140,63 @@ sub approve {
 	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
 
 	my $message = $self->req->json->{tweet};
+	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
+		my ($mango, $error, $tweet) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$tweet;
 
-	$self->app->tweets->update({ _id => bson_oid($message) }, {
-		'$set' => {
-			status => 'Approved',
-			approved => bson_time,
-			approved_by => {
-				id => $self->session->{user}->{id},
-				gravatar_id => $self->session->{user}->{gravatar_id},
-				name => $self->session->{user}->{name},
-				login => $self->session->{user}->{login},
+		$self->app->tweets->update({ _id => bson_oid($message) }, {
+			'$set' => {
+				status => 'Approved',
+				approved => bson_time,
+				approved_by => {
+					id => $self->session->{user}->{id},
+					gravatar_id => $self->session->{user}->{gravatar_id},
+					name => $self->session->{user}->{name},
+					login => $self->session->{user}->{login},
+				}
 			}
-		}
-	} => sub {
-		my ($mango, $error, $doc) = @_;
-		die("DB error: $error") if $error;
-
-		# TODO multiple accounts
-		$self->app->accounts->find_one({} => sub {
+		} => sub {
 			my ($mango, $error, $doc) = @_;
-
 			die("DB error: $error") if $error;
-			die("No accounts") if !$doc;
 
-			$self->app->tweets->find_one({ _id => bson_oid($message) } => sub {
-				my ($mango, $error, $tweet) = @_;
+			# TODO multiple accounts
+			$self->app->accounts->find_one({screen_name => $tweet->{account}} => sub {
+				my ($mango, $error, $doc) = @_;
+
 				die("DB error: $error") if $error;
-				die("Tweet not found") if !$tweet;
+				die("No accounts") if !$doc;
 
-				# Send tweet
-				my $nt = Net::Twitter->new(
-				      traits   => [qw/API::RESTv1_1/],
-				      ssl => 1,
-				      consumer_key        => $self->config->{twitter}->{consumer_key},
-				      consumer_secret     => $self->config->{twitter}->{consumer_secret},
-				      access_token        => $doc->{access_token},
-				      access_token_secret => $doc->{access_token_secret},
-				  );
-				$nt->update({status => $tweet->{message}});
+				$self->app->tweets->find_one({ _id => bson_oid($message) } => sub {
+					my ($mango, $error, $tweet) = @_;
+					die("DB error: $error") if $error;
+					die("Tweet not found") if !$tweet;
 
-				$self->render(json => {
-					status => 'Approved',
-					approved => bson_time,
-					approved_by => {
-						id => $self->session->{user}->{id},
-						gravatar_id => $self->session->{user}->{gravatar_id},
-						name => $self->session->{user}->{name},
-						login => $self->session->{user}->{login},
-					}
-				}, status => 200);
-			});
-		});		
+					# Send tweet
+					my $nt = Net::Twitter->new(
+					      traits   => [qw/API::RESTv1_1/],
+					      ssl => 1,
+					      consumer_key        => $self->config->{twitter}->{consumer_key},
+					      consumer_secret     => $self->config->{twitter}->{consumer_secret},
+					      access_token        => $doc->{access_token},
+					      access_token_secret => $doc->{access_token_secret},
+					  );
+					$nt->update({status => $tweet->{message}});
+
+					$self->render(json => {
+						status => 'Approved',
+						approved => bson_time,
+						approved_by => {
+							id => $self->session->{user}->{id},
+							gravatar_id => $self->session->{user}->{gravatar_id},
+							name => $self->session->{user}->{name},
+							login => $self->session->{user}->{login},
+						}
+					}, status => 200);
+				});
+			});		
+		});
+
 	});
 
 	$self->render_later;
