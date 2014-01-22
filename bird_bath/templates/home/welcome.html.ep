@@ -119,7 +119,9 @@
 				<th>Account</th>
 				<th>Message</th>
 				<th>Created</th>
-				<th>Actions</th>
+				% if($user->{_birdbath}->{role} ne 'Contributor') {
+					<th>Actions</th>
+				% }
 				<th>Approved</th>
 				<th>Edited</th>
 			</tr>
@@ -131,13 +133,13 @@
 					<span ng-if="tweet.$editing"><input type="text" class="form-control" ng-model="tweet.message" /></span>
 				</td>
 				<td>{{ fromNow(tweet.created) }}</td>
-				<td>
-					% if($user->{_birdbath}->{role} ne 'Contributor') {
+				% if($user->{_birdbath}->{role} ne 'Contributor') {
+					<td>					
 						<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
 						<button class="btn btn-sm" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved'">{{ tweet.$editing ? "Save" : "Edit" }}</button>
 						<button class="btn btn-sm" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
-					% }
-				</td>
+					</td>
+				% }
 				<td>
 					<div ng-if="tweet.approved">
 						<img src="//gravatar.com/avatar/{{ tweet.approved_by.gravatar_id }}?s=24" /> {{ tweet.approved_by.name }}
