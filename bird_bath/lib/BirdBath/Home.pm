@@ -29,7 +29,11 @@ sub accounts {
 		my @accounts;
 		for my $doc (@$docs) {
 			push @accounts, {
-				screen_name => $doc->{screen_name}
+				screen_name => $doc->{screen_name},
+				profile => {
+					name => $doc->{profile}->{name},
+					image_url => $doc->{profile}->{profile_image_url},
+				}
 			};
 		}
 
@@ -48,6 +52,13 @@ sub tweets {
 
 		die("DB error") if $error;
 
+		for my $doc (@$docs) {
+			if($doc->{edits}) {
+				$doc->{edited_by} = $doc->{edits}->[-1]->{edited_by};
+			}
+		}
+		use Data::Dumper; print Dumper $docs;
+
 		$self->render(json => $docs);
 	});
 
@@ -58,6 +69,7 @@ sub tweet {
 	my $self = shift;
 
 	my $message = $self->req->json->{message};
+	my $account = $self->req->json->{account};
 
 	$self->app->tweets->insert({
 		user => {
@@ -66,6 +78,7 @@ sub tweet {
 			name => $self->session->{user}->{name},
 			login => $self->session->{user}->{login},
 		},
+		account => $account,
 		message => $message,
 		created => bson_time,
 		status => 'Unapproved',
@@ -73,6 +86,49 @@ sub tweet {
 		my ($mango, $error, $doc) = @_;
 		die("DB error") if $error;
 		$self->render(text => '', status => 201);
+	});
+
+	$self->render_later;
+}
+
+sub update {
+	my $self = shift;
+
+	# TODO do this properly
+	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
+
+	my $id = $self->req->json->{id};
+	my $message = $self->req->json->{message};
+	my $account = $self->req->json->{account};
+
+	$self->app->tweets->find_one({_id => bson_oid($id)} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		$self->app->tweets->update({
+			_id => bson_oid($id)
+		},{
+			'$set' => {
+				message => $message,
+			},
+			'$push' => {
+				edits => {
+					edited => bson_time,
+					edited_by => {
+						id => $self->session->{user}->{id},
+						gravatar_id => $self->session->{user}->{gravatar_id},
+						name => $self->session->{user}->{name},
+						login => $self->session->{user}->{login},
+					},
+					previous => $doc->{message},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			$self->render(status => 200, text => '');
+		});
 	});
 
 	$self->render_later;

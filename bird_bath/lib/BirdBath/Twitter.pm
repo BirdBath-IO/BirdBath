@@ -47,11 +47,14 @@ sub callback {
   my($access_token, $access_token_secret, $user_id, $screen_name)
         = $nt->request_access_token(verifier => $verify);
 
+  my $profile = $nt->show_user($screen_name);
+
   $self->accounts->update({user_id => $user_id},{
     user_id => $user_id,
     screen_name => $screen_name,
     access_token => $access_token,
     access_token_secret => $access_token_secret,
+    profile => $profile,
   },{upsert => 1} => sub {
     my ($mango, $error, $doc) = @_;
 

@@ -7,6 +7,7 @@
 		birdbath.controller('BirdBath', function ($scope, $http, $q, $location, $timeout) {
 			$scope.tweets = [];
 			$scope.accounts = [];
+			$scope.selected_account = null;
 
 			$scope.fromNow = function(date) {
 				return moment(date).fromNow();
@@ -21,24 +22,55 @@
 
 			$scope.getAccounts = function() {
 				$http.get('/accounts').success(function(d) {
+					if(!$scope.selected_account) $scope.selected_account = d[0];
 					$scope.accounts = d;
 				});
 			};
 			$scope.getAccounts();
+			$scope.selectAccount = function(account) {
+				$scope.selected_account = account;
+			}
 
 			$scope.sendTweet = function() {
-				$http.post('/tweets', { message: $scope.message }).success(function(d) {
+				$http.post('/tweets', { message: $scope.message, account: $scope.selected_account.screen_name }).success(function(d) {
 					$scope.message = "";
 					$scope.getTweets();
 				});
 			};
 
 			$scope.approve = function(tweet) {
+				$scope.approving = tweet;
+				$('#approve-dialog').modal('show');
+			}
+
+			$scope.confirmApprove = function() {
+				var tweet = $scope.approving;
 				$http.post('/approve', { tweet: tweet._id }).success(function(d) {
 					for(var v in d) {
 						tweet[v] = d[v];
 					}
+					$('#approve-dialog').modal('hide');
 				});
+			}
+
+			$scope.save = function(tweet) {
+				$http.post('/update', { id: tweet._id, message: tweet.message, account: tweet.account }).success(function(d) {
+					tweet.$editing = false;
+				});
+			}
+
+			$scope.editOrSave = function(tweet) {
+				if(tweet.$editing == true) {
+					$scope.save(tweet);
+				} else {
+					tweet.$editing = true;
+					tweet.$original = angular.copy(tweet);
+				}
+			}
+			$scope.cancelEdit = function(tweet) {
+				tweet.$editing = false;
+				tweet.message = tweet.$original.message;
+				tweet.account = tweet.$original.account;
 			}
 		});
 	</script>
@@ -46,41 +78,74 @@
 		<h2>Post a tweet</h2>
 		<div class="post_tweet">
 			<div class="input-group">
-				<input type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
+				<div class="input-group-btn">
+			        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><img src="{{ selected_account.profile.image_url }}" style="width: 18px" /> {{ selected_account.profile.name }} <span class="caret"></span></button>
+			        <ul class="dropdown-menu">
+			          <li ng-click="selectAccount(account)" ng-repeat="account in accounts" style="padding: 3px 10px"><img src="{{ account.profile.image_url }}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
+			        </ul>
+			    </div>
+			    <input type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
 				<span class="input-group-btn">
 					<button ng-click="sendTweet()" class="btn btn-default">Post</button>
 				</span>
 			</div>
 		</div>
 
-		<h2>Accounts</h2>
-		<ul>
-			<li ng-repeat="account in accounts">{{ account.screen_name }}</li>
-		</ul>
+		<div class="modal fade" id="approve-dialog">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+		        <h4 class="modal-title">Tweet from @{{ approving.account }}</h4>
+		      </div>
+		      <div class="modal-body">
+		        <h2>Are you sure you want to post this message using @{{ approving.account }}?</h2>
+		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
+		        	{{ approving.message }}
+		        </h3>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+		        <button type="button" class="btn btn-primary" ng-click="confirmApprove(approving)">Approve</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
 
 		<h2>Tweets</h2>
 		<table class="table">
 			<tr>
 				<th>Posted by</th>
+				<th>Account</th>
 				<th>Message</th>
 				<th>Created</th>
 				<th>Actions</th>
 				<th>Approved</th>
-				<th>Approved by</th>
+				<th>Edited</th>
 			</tr>
-			<tr ng-repeat="tweet in tweets">
-				<td><img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=36" /> {{ tweet.user.name }}</td>
-				<td>{{ tweet.message }}</td>
-				<td>{{ tweet.status }}</td>
+			<tr ng-repeat="tweet in tweets" ng-init="editing = false">
+				<td><img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=24" /> {{ tweet.user.name }}</td>
+				<td>@{{ tweet.account }}</td>
+				<td>
+					<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
+					<span ng-if="tweet.$editing"><input type="text" class="form-control" ng-model="tweet.message" /></span>
+				</td>
 				<td>{{ fromNow(tweet.created) }}</td>
 				<td>
 					% if($user->{_birdbath}->{role} ne 'Contributor') {
-						<button ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
+						<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
+						<button class="btn btn-sm" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved'">{{ tweet.$editing ? "Save" : "Edit" }}</button>
+						<button class="btn btn-sm" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
 					% }
 				</td>
 				<td>
 					<div ng-if="tweet.approved">
-						<img src="//gravatar.com/avatar/{{ tweet.approved_by.gravatar_id }}?s=36" /> {{ tweet.approved_by.name }}
+						<img src="//gravatar.com/avatar/{{ tweet.approved_by.gravatar_id }}?s=24" /> {{ tweet.approved_by.name }}
+					</div>
+				</td>
+				<td>
+					<div ng-if="tweet.edited_by">
+						<img src="//gravatar.com/avatar/{{ tweet.edited_by.gravatar_id }}?s=24" /> {{ tweet.edited_by.name }}
 					</div>
 				</td>
 			</tr>

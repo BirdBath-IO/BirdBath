@@ -25,20 +25,19 @@
 
 		  <!-- Collect the nav links, forms, and other content for toggling -->
 		  <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+		  	% if($user) {
+			  	<ul class="nav navbar-nav">
+	      			<li><a href="/twitter"><span class="glyphicon glyphicon-plus"></span> Add twitter account</a></li>
+	      		</ul>
+      		% }
+
 		    <ul class="nav navbar-nav navbar-right">
 		    % if(!$user) {
 		      <li><a href="/github">Login with GitHub</a></li>
 		    % } else {
-		      <li class="dropdown">
-		        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=18" style="margin-right: 4px" /> <%= $user->{name} %> <b class="caret"></b></a>
-		        <ul class="dropdown-menu">		          
-		          <li><a href="/twitter">Add twitter account</a></li>
-		          % if($user->{_birdbath}->{role} eq 'Admin') {
-			  		<li><a href="/admin">Admin</a></li>
-			  	  % }
-		          <li class="divider"></li>
-		          <li><a href="/logout">Logout</a></li>
-		        </ul>
+		      <li><a href="/logout">Logout</a></li>
+		      <li>
+		        <a><img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=18" style="margin-right: 4px" /> <%= $user->{name} %></a>
 		      </li>
 		    % }
 		    </ul>
