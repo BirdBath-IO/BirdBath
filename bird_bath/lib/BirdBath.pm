@@ -44,6 +44,8 @@ sub startup {
   $auth->post('/tweets')->to('home#tweet');
   $auth->get('/accounts')->to('home#accounts');
   $auth->post('/approve')->to('home#approve');
+  $auth->post('/reject')->to('home#reject');
+  $auth->post('/undo')->to('home#undo');
   $auth->post('/update')->to('home#update');
 }
 

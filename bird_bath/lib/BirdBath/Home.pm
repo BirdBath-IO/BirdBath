@@ -54,7 +54,7 @@ sub tweets {
 
 		for my $doc (@$docs) {
 			if($doc->{edits}) {
-				$doc->{edited_by} = $doc->{edits}->[-1]->{edited_by};
+				$doc->{last_edit} = $doc->{edits}->[-1];
 			}
 		}
 
@@ -70,21 +70,31 @@ sub tweet {
 	my $message = $self->req->json->{message};
 	my $account = $self->req->json->{account};
 
-	$self->app->tweets->insert({
-		user => {
-			id => $self->session->{user}->{id},
-			gravatar_id => $self->session->{user}->{gravatar_id},
-			name => $self->session->{user}->{name},
-			login => $self->session->{user}->{login},
-		},
-		account => $account,
-		message => $message,
-		created => bson_time,
-		status => 'Unapproved',
-	} => sub {
+	$self->app->accounts->find_one({ screen_name => $account } => sub {
 		my ($mango, $error, $doc) = @_;
 		die("DB error") if $error;
-		$self->render(text => '', status => 201);
+		die("Not found") if !$doc;
+
+		$self->app->tweets->insert({
+			user => {
+				id => $self->session->{user}->{id},
+				gravatar_id => $self->session->{user}->{gravatar_id},
+				name => $self->session->{user}->{name},
+				login => $self->session->{user}->{login},
+			},
+			account => {
+				screen_name => $account,
+				name => $doc->{profile}->{name},
+				avatar => $doc->{profile}->{profile_image_url},
+			},
+			message => $message,
+			created => bson_time,
+			status => 'Unapproved',
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			$self->render(text => '', status => 201);
+		});
 	});
 
 	$self->render_later;
@@ -104,6 +114,10 @@ sub update {
 		my ($mango, $error, $doc) = @_;
 		die("DB error") if $error;
 		die("Not found") if !$doc;
+
+		if($doc->{account} ne $account) {
+			# TODO load account and add to tweet update
+		}
 
 		$self->app->tweets->update({
 			_id => bson_oid($id)
@@ -133,6 +147,87 @@ sub update {
 	$self->render_later;
 }
 
+sub reject {
+	my $self = shift;
+
+	# TODO do this properly
+	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
+
+	my $message = $self->req->json->{tweet};
+	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
+		my ($mango, $error, $tweet) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$tweet;
+
+		$self->app->tweets->update({ _id => bson_oid($message) }, {
+			'$set' => {
+				status => 'Rejected',
+				rejected => bson_time,
+				rejected_by => {
+					id => $self->session->{user}->{id},
+					gravatar_id => $self->session->{user}->{gravatar_id},
+					name => $self->session->{user}->{name},
+					login => $self->session->{user}->{login},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error: $error") if $error;
+
+			$self->render(json => {
+				status => 'Rejected',
+				rejected => bson_time,
+				rejected_by => {
+					id => $self->session->{user}->{id},
+					gravatar_id => $self->session->{user}->{gravatar_id},
+					name => $self->session->{user}->{name},
+					login => $self->session->{user}->{login},
+				}
+			}, status => 200);
+		});
+
+	});
+
+	$self->render_later;
+}
+
+sub undo {
+	my $self = shift;
+
+	# TODO do this properly
+	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
+
+	my $message = $self->req->json->{tweet};
+	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
+		my ($mango, $error, $tweet) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$tweet;
+
+		$self->app->tweets->update({ _id => bson_oid($message) }, {
+			'$unset' => {
+				rejected => 1,
+				rejected_by => 1
+			},
+			'$set' => {
+				status => 'Unapproved',
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error: $error") if $error;
+
+			$self->render(json => {
+				status => 'Unapproved',
+				rejected => 0,
+				rejected_by => {},
+			}, status => 200);
+		});
+
+	});
+
+	$self->render_later;
+}
+
+
 sub approve {
 	my $self = shift;
 
@@ -154,14 +249,15 @@ sub approve {
 					gravatar_id => $self->session->{user}->{gravatar_id},
 					name => $self->session->{user}->{name},
 					login => $self->session->{user}->{login},
-				}
+				},
+				tweeted => bson_time,
 			}
 		} => sub {
 			my ($mango, $error, $doc) = @_;
 			die("DB error: $error") if $error;
 
 			# TODO multiple accounts
-			$self->app->accounts->find_one({screen_name => $tweet->{account}} => sub {
+			$self->app->accounts->find_one({screen_name => $tweet->{account}->{screen_name}} => sub {
 				my ($mango, $error, $doc) = @_;
 
 				die("DB error: $error") if $error;
@@ -191,7 +287,8 @@ sub approve {
 							gravatar_id => $self->session->{user}->{gravatar_id},
 							name => $self->session->{user}->{name},
 							login => $self->session->{user}->{login},
-						}
+						},
+						tweeted => bson_time,
 					}, status => 200);
 				});
 			});		
