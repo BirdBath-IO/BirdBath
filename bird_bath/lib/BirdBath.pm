@@ -62,6 +62,9 @@ sub startup {
   $auth->post('/undo')->to('home#undo');
   $auth->post('/update')->to('home#update');
   $auth->post('/request')->to('home#request');
+  $auth->post('/search')->to('search#search');
+  $auth->post('/timeline')->to('search#timeline');
+  $auth->post('/retweet')->to('home#retweet');
 }
 
 1;

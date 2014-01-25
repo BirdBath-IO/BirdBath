@@ -75,6 +75,14 @@
 				});
 			};
 
+			$scope.sendRetweet = function() {
+				$http.post('/retweet', { tweet: $scope.selected_tweet, account: $scope.selected_account.screen_name }).success(function(d) {
+					$scope.selected_tweet.$selected = false;
+					$scope.selected_tweet = null;
+					$scope.getTweets();
+				});
+			}
+
 			$scope.approve = function(tweet) {
 				$scope.approving = tweet;
 				$('#approve-dialog').modal('show');
@@ -125,6 +133,46 @@
 					}
 				});
 			}
+
+			$scope.search_results = [];
+			$scope.findTweet = function() {
+				$('#find-tweet-dialog').modal('show');
+			}
+			$scope.selected_tweet = null;
+			$scope.clearSelected = function() {
+				$scope.selected_tweet.$selected = false;
+				$scope.selected_tweet = null;
+			}
+			$scope.selectTweet = function(tweet) {
+				if($scope.selected_tweet) {
+					$scope.selected_tweet.$selected = false;
+				}
+				tweet.$selected = true;
+				$scope.selected_tweet = tweet;
+			}
+			$scope.confirmSelect = function() {
+				$('#find-tweet-dialog').modal('hide');
+
+			}
+			$scope.updateSearch = function() {
+				$scope.loading = true;
+				var term = $scope.search_term;
+				if(term.substring(0,1) == '@') {
+					// timeline
+					if(term.length > 1) {
+						$http.post('/timeline', { username: term.substring(1) }).success(function(d) {
+							$scope.search_results = d;
+							$scope.loading = false;
+						});
+					}
+				} else {
+					// search
+					$http.post('/search', { search: term }).success(function(d) {
+						$scope.search_results = d;
+						$scope.loading = false;
+					});
+				}
+			}
 		});
 	</script>
 	<div class="application" ng-controller="BirdBath" ng-app="birdbath">
@@ -138,7 +186,6 @@
 				          <li ng-click="selectAccount(account)" ng-repeat="account in accounts | filter:isContributorAdminOrEditor" style="padding: 3px 10px"><img src="{{ account.profile.image_url }}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
 				        </ul>
 				    </div>
-				    <!--
 				    <div class="input-group-btn">
 				        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="border-radius: 0">{{ type }} <span class="caret"></span></button>
 				        <ul class="dropdown-menu">
@@ -146,16 +193,68 @@
 				          <li ng-click="type = 'Retweet'" style="padding: 3px 10px">Retweet</li>
 				        </ul>
 				    </div>
-				    <span ng-if="type == 'Retweet'" class="form-control">
-			    		<h3>Find a tweet</h3>
+				    <button ng-click="clearSelected()" ng-if="selected_tweet != null" class="form-control btn btn-default"><span class="glyphicon glyphicon-remove"></span></button>
+				    <span ng-if="type == 'Retweet' && selected_tweet == null" class="form-control">
+			    		<a href="#" ng-click="findTweet()"><span class="glyphicon glyphicon-search"></span> Find a tweet</a>
 			    	</span>
-				    -->
+			    	<span ng-if="type == 'Retweet' && selected_tweet != null" class="form-control">
+			    		<img src="{{ selected_tweet.user.profile_image_url }}" style="height: 16px" />
+			    		@{{ selected_tweet.user.screen_name }}
+			    		{{ selected_tweet.text }}
+			    	</span>
 			    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
 					<span class="input-group-btn">
-						<button type="submit" ng-click="sendTweet()" class="btn btn-default">Post</button>
+						<button type="submit" ng-click="type == 'Tweet' ? sendTweet() : sendRetweet()" class="btn btn-default">Post</button>
 					</span>
 				</div>
 			</form>
+		</div>
+
+		<style>
+			.results {
+				max-height: 400px;
+				overflow-y: scroll;
+			}
+			.results .result {
+				padding: 10px;
+			}
+			.results .result:hover {
+				background: #eeeeee;
+			}
+			.results .result.selected {
+				background: #eeeecc
+			}
+		</style>
+		<div class="modal fade" id="find-tweet-dialog">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+		        <h4 class="modal-title">Find a tweet</h4>
+		      </div>
+		      <div class="modal-body">
+		      	<div class="input-group">
+		        	<input autofocus type="text" class="form-control" id="find-tweet-search" placeholder="@username or search term" ng-model="search_term" />
+		        	<div class="input-group-btn">
+		        		<button class="btn btn-default" type="submit" ng-click="updateSearch()">Search</button>
+		        	</div>
+		        </div>
+		        <div class="results">
+		        	<div ng-if="loading">Please wait, loading</div>
+		        	<div ng-click="selectTweet(tweet)" class="result {{ tweet.$selected ? 'selected' : '' }}" ng-repeat="tweet in search_results">
+		        		<img src="{{ tweet.user.profile_image_url }}" />
+		        		@{{ tweet.user.screen_name}}
+		        		{{ tweet.text }}
+		        		{{ tweet.retweeted == 1 ? "(Retweet)" : ""}}
+		        	</div>
+		        </div>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+		        <button ng-disabled="selected_tweet == null" type="button" class="btn btn-primary" ng-click="confirmSelect()">Select</button>
+		      </div>
+		    </div>
+		  </div>
 		</div>
 
 		<div class="modal fade" id="approve-dialog">
@@ -165,10 +264,18 @@
 		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
 		        <h4 class="modal-title"><img src="{{ approving.account.avatar }}" /> Tweet from @{{ approving.account.screen_name }}</h4>
 		      </div>
-		      <div class="modal-body">
-		        <h2>Are you sure you want to post this message using @{{ approving.account.screen_name }}?</h2>
+		      <div class="modal-body" ng-if="!approving.retweet">
+		        <h2>Are you sure you want to tweet this message using @{{ approving.account.screen_name }}?</h2>
 		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
 		        	{{ approving.message }}
+		        </h3>
+		      </div>
+		      <div class="modal-body" ng-if="approving.retweet">
+		        <h2>Are you sure you want to retweet this message using @{{ approving.account.screen_name }}?</h2>
+		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
+		        	<img src="{{ approving.tweet.user.profile_image_url }}" style="height: 28px" /> 
+		        	<a href="//twitter.com/{{ approving.tweet.user.screen_name }}">@{{ approving.tweet.user.screen_name }}</a> 
+		        	{{ approving.tweet.text }}
 		        </h3>
 		      </div>
 		      <div class="modal-footer">
@@ -232,7 +339,7 @@
 							Edited by {{ tweet.last_edit.edited_by.name }} about {{ fromNow(tweet.last_edit.edited) }}
 						</span>
 						<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">
-							<button  class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
+							<button ng-if="!tweet.retweet" class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
 
 							<button class="btn btn-sm btn-default" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
 							<button class="btn btn-sm btn-warning" ng-click="editOrSave(tweet)" ng-if="tweet.$editing">Save</button>
@@ -244,17 +351,28 @@
 				</div>
 				<img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=18" />
 				<a href="//github.com/{{ tweet.user.login }}">{{ tweet.user.name }}</a>
-				 posted a tweet from 
+				<span ng-if="tweet.retweet">
+					retweeted 
+					<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 18px; margin-left: 4px;" />
+					 <a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a> 
+					from 
+					</span>
+				<span ng-if="!tweet.retweet">tweeted from </span>
 				<img src="{{ tweet.account.avatar }}" style="width: 18px; margin-left: 4px;" />
 				<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
 				 about 
 				{{ fromNow(tweet.created) }}
 			</div>
-			<div class="panel-body">
+			<div class="panel-body" ng-if="!tweet.retweet">
 				<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
 				<span ng-if="tweet.$editing">
 					<input autofocus type="text" class="form-control input-lg" ng-model="tweet.message" />
 				</span>
+			</div>
+			<div class="panel-body" ng-if="tweet.retweet">
+				<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 28px; margin-left: 4px;" />
+				<a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a>
+				{{ tweet.tweet.text }}
 			</div>
 		</div>
 	</div>

