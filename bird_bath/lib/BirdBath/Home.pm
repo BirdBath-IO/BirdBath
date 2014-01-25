@@ -73,10 +73,16 @@ sub request {
 	my $username = $self->param('username');
 	die("No username") if !$username;
 
+	$username = substr($username, 1) if substr($username, 0, 1) eq '@';
+
 	$self->app->accounts->find_one({screen_name_lc => lc($username)} => sub {
 		my ($mango, $error, $doc) = @_;
 		die("DB error") if $error;
-		return $self->render(json => { error => "Twitter account not yet registered with BirdBath"}) if !$doc;
+		my $suggest = "\@$username Have you seen \@BirdBath_SM - https://github.com/ian-kent/BirdBath";
+		my $link = "<a href=\"https://twitter.com/intent/tweet?source=webclient&text=$suggest\">";
+		$link .= "Why not ask them to join?";
+		$link .= "</a>";
+		return $self->render(json => { error => "Twitter account not yet registered with BirdBath - $link"}) if !$doc;
 
 		for my $u (@{$doc->{users}}) {
 			if($u->{id} eq $self->session->{user}->{id} && $u->{provider} eq $self->session->{user}->{provider}) {

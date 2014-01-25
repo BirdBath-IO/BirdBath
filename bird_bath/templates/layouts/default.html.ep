@@ -73,7 +73,7 @@
 		      							$('#twitter-add-error').hide();
 	      							} else {
 	      								$('#twitter-add-error').show();
-	      								$('#twitter-add-error').text(d.error);
+	      								$('#twitter-add-error').html(d.error);
 	      							}
 	      						},
 	      						error: function(e) {
