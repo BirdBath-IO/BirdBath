@@ -7,6 +7,8 @@
   	<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment-with-langs.js"></script>
   	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.css" />
   	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap-theme.css" />
+  	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css" />
+  	<link rel="stylesheet" href="/bootstrap-social.css" />
   	<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.js"></script>
   	<link rel="icon" type="image/png" href="/icon-36.png">
   </head>
@@ -26,19 +28,19 @@
 
 		  <!-- Collect the nav links, forms, and other content for toggling -->
 		  <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-		  	% if($user) {
+		  	% if((stash 'user')) {
 			  	<ul class="nav navbar-nav">
 	      			<li><a href="/twitter"><span class="glyphicon glyphicon-plus"></span> Add twitter account</a></li>
 	      		</ul>
 	  		% }
 
 		    <ul class="nav navbar-nav navbar-right">
-		    % if(!$user) {
-		      <li><a href="/github">Login with GitHub</a></li>
+		    % if(!(stash 'user')) {
+		      <li><a href="/login">Login</a></li>
 		    % } else {
 		      <li><a href="/logout">Logout</a></li>
 		      <li>
-		        <a><img src="//gravatar.com/avatar/<%= $user->{gravatar_id} %>?s=18" style="margin-right: 4px" /> <%= $user->{name} %></a>
+		        <a><img src="<%= (stash 'user')->{avatar} %>" style="height: 18px; margin-right: 4px" /> <%= (stash 'user')->{name} %></a>
 		      </li>
 		    % }
 		    </ul>

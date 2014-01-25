@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'Login';
+<ul class="col-md-6">
+	<li><a href="/oauth2/login?provider=github" class="btn btn-block btn-social btn-lg btn-github"><i class="fa fa-github"></i>Sign in with GitHub</a></li>
+</ul>
+<ul class="col-md-6">
+
+</ul>

@@ -8,7 +8,7 @@ use Net::Twitter;
 sub welcome {
   my $self = shift;
 
-  $self->render(user => $self->session->{user});
+  $self->render();
 }
 
 sub logout {
@@ -20,7 +20,10 @@ sub logout {
 sub accounts {
 	my $self = shift;
 
-	my $cursor = $self->app->accounts->find;
+	my $cursor = $self->app->accounts->find({
+		'users.provider' => $self->session->{user}->{provider},
+		'users.id' => $self->session->{user}->{id},
+	});
 	$cursor->all(sub {
 		my ($mango, $error, $docs) = @_;
 
@@ -28,12 +31,28 @@ sub accounts {
 
 		my @accounts;
 		for my $doc (@$docs) {
+			my $user;
+			for my $u (@{$doc->{users}}) {
+				if($u->{provider} == $self->session->{user}->{provider} &&
+				   $u->{id} == $self->session->{user}->{id}) {
+					$user = $u;
+					last;
+				}
+			}
 			push @accounts, {
 				screen_name => $doc->{screen_name},
 				profile => {
 					name => $doc->{profile}->{name},
 					image_url => $doc->{profile}->{profile_image_url},
-				}
+				},
+				owner => {
+					provider => $doc->{owner}->{provider},
+				    id => $doc->{owner}->{id},
+				    avatar => $doc->{owner}->{avatar},
+				    name => $doc->{owner}->{name},
+				    username => $doc->{owner}->{username},
+				},
+				role => $user->{role},
 			};
 		}
 
@@ -46,19 +65,35 @@ sub accounts {
 sub tweets {
 	my $self = shift;
 
-	my $cursor = $self->app->tweets->find->sort({created => -1});
+	my $cursor = $self->app->accounts->find({
+		'users.provider' => $self->session->{user}->{provider},
+		'users.id' => $self->session->{user}->{id},
+	});
 	$cursor->all(sub {
 		my ($mango, $error, $docs) = @_;
 
 		die("DB error") if $error;
 
-		for my $doc (@$docs) {
-			if($doc->{edits}) {
-				$doc->{last_edit} = $doc->{edits}->[-1];
-			}
-		}
+		my @accounts = map { $_->{screen_name} } @$docs;
 
-		$self->render(json => $docs);
+		my $cursor = $self->app->tweets->find({
+			'account.screen_name' => {
+				'$in' => \@accounts,
+			}
+		})->sort({created => -1});
+		$cursor->all(sub {
+			my ($mango, $error, $docs) = @_;
+
+			die("DB error") if $error;
+
+			for my $doc (@$docs) {
+				if($doc->{edits}) {
+					$doc->{last_edit} = $doc->{edits}->[-1];
+				}
+			}
+
+			$self->render(json => $docs);
+		});
 	});
 
 	$self->render_later;
@@ -77,10 +112,11 @@ sub tweet {
 
 		$self->app->tweets->insert({
 			user => {
-				id => $self->session->{user}->{id},
-				gravatar_id => $self->session->{user}->{gravatar_id},
-				name => $self->session->{user}->{name},
-				login => $self->session->{user}->{login},
+				provider => $self->session->{user}->{provider},
+			    id => $self->session->{user}->{id},
+			    avatar => $self->session->{user}->{avatar},
+			    name => $self->session->{user}->{name},
+			    username => $self->session->{user}->{username},
 			},
 			account => {
 				screen_name => $account,
@@ -129,10 +165,11 @@ sub update {
 				edits => {
 					edited => bson_time,
 					edited_by => {
-						id => $self->session->{user}->{id},
-						gravatar_id => $self->session->{user}->{gravatar_id},
-						name => $self->session->{user}->{name},
-						login => $self->session->{user}->{login},
+						provider => $self->session->{user}->{provider},
+					    id => $self->session->{user}->{id},
+					    avatar => $self->session->{user}->{avatar},
+					    name => $self->session->{user}->{name},
+					    username => $self->session->{user}->{username},
 					},
 					previous => $doc->{message},
 				}
@@ -164,10 +201,11 @@ sub reject {
 				status => 'Rejected',
 				rejected => bson_time,
 				rejected_by => {
-					id => $self->session->{user}->{id},
-					gravatar_id => $self->session->{user}->{gravatar_id},
-					name => $self->session->{user}->{name},
-					login => $self->session->{user}->{login},
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
 				}
 			}
 		} => sub {
@@ -178,10 +216,11 @@ sub reject {
 				status => 'Rejected',
 				rejected => bson_time,
 				rejected_by => {
-					id => $self->session->{user}->{id},
-					gravatar_id => $self->session->{user}->{gravatar_id},
-					name => $self->session->{user}->{name},
-					login => $self->session->{user}->{login},
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
 				}
 			}, status => 200);
 		});
@@ -245,10 +284,11 @@ sub approve {
 				status => 'Approved',
 				approved => bson_time,
 				approved_by => {
-					id => $self->session->{user}->{id},
-					gravatar_id => $self->session->{user}->{gravatar_id},
-					name => $self->session->{user}->{name},
-					login => $self->session->{user}->{login},
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
 				},
 				tweeted => bson_time,
 			}
@@ -283,10 +323,11 @@ sub approve {
 						status => 'Approved',
 						approved => bson_time,
 						approved_by => {
-							id => $self->session->{user}->{id},
-							gravatar_id => $self->session->{user}->{gravatar_id},
-							name => $self->session->{user}->{name},
-							login => $self->session->{user}->{login},
+							provider => $self->session->{user}->{provider},
+						    id => $self->session->{user}->{id},
+						    avatar => $self->session->{user}->{avatar},
+						    name => $self->session->{user}->{name},
+						    username => $self->session->{user}->{username},
 						},
 						tweeted => bson_time,
 					}, status => 200);

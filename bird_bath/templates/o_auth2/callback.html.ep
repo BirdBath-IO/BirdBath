@@ -1,0 +1,14 @@
+% layout 'default';
+% title 'Choose';
+
+% if (stash 'errors') {
+	<p>error</p>
+	<pre>
+		<%= dumper(stash 'errors') %>
+	</pre>
+% }
+<pre>
+Provider: <%= stash 'provider' %>
+Profile:
+<%= dumper(stash 'profile') %>
+</pre>

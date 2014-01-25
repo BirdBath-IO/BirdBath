@@ -55,6 +55,23 @@ sub callback {
     access_token => $access_token,
     access_token_secret => $access_token_secret,
     profile => $profile,
+    owner => {
+      provider => $self->session->{user}->{provider},
+      id => $self->session->{user}->{id},
+      avatar => $self->session->{user}->{avatar},
+      name => $self->session->{user}->{name},
+      username => $self->session->{user}->{username},
+    },
+    users => [
+      {
+        role => 'admin',
+        provider => $self->session->{user}->{provider},
+        id => $self->session->{user}->{id},
+        avatar => $self->session->{user}->{avatar},
+        name => $self->session->{user}->{name},
+        username => $self->session->{user}->{username},
+      }
+    ]
   },{upsert => 1} => sub {
     my ($mango, $error, $doc) = @_;
 

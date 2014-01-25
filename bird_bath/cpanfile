@@ -3,3 +3,5 @@ requires 'Mojolicious';
 requires 'Mango';
 requires 'MIME::Base64';
 requires 'Net::Twitter';
+requires 'https://github.com/companieshouse/MojoX-OAuth2';
+requires 'Data::Uniqid';
