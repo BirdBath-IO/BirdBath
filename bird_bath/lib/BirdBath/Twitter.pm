@@ -52,6 +52,7 @@ sub callback {
   $self->accounts->update({user_id => $user_id},{
     user_id => $user_id,
     screen_name => $screen_name,
+    screen_name_lc => lc($screen_name),
     access_token => $access_token,
     access_token_secret => $access_token_secret,
     profile => $profile,

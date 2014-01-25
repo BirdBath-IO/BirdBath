@@ -51,6 +51,9 @@ sub callback {
 					},{
 						provider => $provider,
 						id => $tx->success->json->{id},
+						avatar => $tx->success->json->{avatar_url},
+						name => $tx->success->json->{name},
+						username => $tx->success->json->{login},
 						profile => $tx->success->json,
 					},{ upsert => 1} => sub {
 						my ($mango, $error, $doc) = @_;

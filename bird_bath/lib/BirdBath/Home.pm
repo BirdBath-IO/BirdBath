@@ -33,13 +33,13 @@ sub accounts {
 		for my $doc (@$docs) {
 			my $user;
 			for my $u (@{$doc->{users}}) {
-				if($u->{provider} == $self->session->{user}->{provider} &&
-				   $u->{id} == $self->session->{user}->{id}) {
+				if($u->{provider}eq $self->session->{user}->{provider} &&
+				   $u->{id} eq $self->session->{user}->{id}) {
 					$user = $u;
 					last;
 				}
 			}
-			push @accounts, {
+			my $account = {
 				screen_name => $doc->{screen_name},
 				profile => {
 					name => $doc->{profile}->{name},
@@ -54,9 +54,51 @@ sub accounts {
 				},
 				role => $user->{role},
 			};
+			if($user->{role} eq 'admin') {
+				$account->{requests} = $doc->{requests};
+				$account->{users} = $doc->{users};
+			}
+			push @accounts, $account;
 		}
 
 		$self->render(json => \@accounts);
+	});
+
+	$self->render_later;
+}
+
+sub request {
+	my $self = shift;
+
+	my $username = $self->param('username');
+	die("No username") if !$username;
+
+	$self->app->accounts->find_one({screen_name_lc => lc($username)} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		return $self->render(json => { error => "Twitter account not yet registered with BirdBath"}) if !$doc;
+
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $self->session->{user}->{id} && $u->{provider} eq $self->session->{user}->{provider}) {
+				return $self->render(json => { error => "You already have access to this account"});
+			}
+		}
+
+		$self->app->accounts->update({screen_name_lc => $username}, {
+			'$addToSet' => {
+				'requests' => {
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			return $self->render(json => { ok => 1 });
+		});
 	});
 
 	$self->render_later;

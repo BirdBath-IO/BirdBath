@@ -30,8 +30,94 @@
 		  <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 		  	% if((stash 'user')) {
 			  	<ul class="nav navbar-nav">
-	      			<li><a href="/twitter"><span class="glyphicon glyphicon-plus"></span> Add twitter account</a></li>
+	      			<li><a href="#" id="add-twitter-account"><span class="glyphicon glyphicon-plus"></span> Add twitter account</a></li>
+	      			<!--<li><a href="/manage"><span class="glyphicon glyphicon-lock"></span> Manage accounts</a></li>-->
 	      		</ul>
+
+	      		<script>
+	      		$(function() {
+	      			$('#twitter-username').hide();
+	      			$('#twitter-add-error').hide();
+	      			$('#add-twitter-account').click(function() {
+	      				$('#twitter-dialog').modal('show');
+	      			});
+	      			$('#add-twitter-yes').click(function() {
+	      				$('#twitter-username').slideUp();
+	      			});
+	      			$('#add-twitter-no').click(function() {
+	      				$('#twitter-username').slideDown();
+	      			});
+	      			$('#twitter-dialog-close').click(function() {
+						$('#twitter-dialog').modal('hide');
+						$('#add-twitter-yes').prop('checked', true);
+						$('#twitter-username').val('');
+						$('#twitter-username').hide();
+						$('#twitter-add-error').hide();
+	      			});
+	      			$('#confirm-add-twitter').click(function() {
+	      				if($('#add-twitter-yes').is(':checked')) {
+	      					window.location = '/twitter';
+	      				} else {
+	      					$.ajax({
+	      						method: 'POST',
+	      						url: '/request',
+	      						data: {
+	      							username: $('#twitter-username').val()
+	      						},
+	      						success: function(d) {
+	      							if(d.ok) {
+		      							$('#twitter-dialog').modal('hide');
+		      							$('#add-twitter-yes').prop('checked', true);
+		      							$('#twitter-username').val('');
+		      							$('#twitter-username').hide();
+		      							$('#twitter-add-error').hide();
+	      							} else {
+	      								$('#twitter-add-error').show();
+	      								$('#twitter-add-error').text(d.error);
+	      							}
+	      						},
+	      						error: function(e) {
+	      							$('#twitter-add-error').show();
+	      							$('#twitter-add-error').text('An error sending this request - please try again');
+	      						}
+	      					});
+	      				}
+	      				return false;
+	      			});
+	      		});
+	      		</script>
+
+				<div class="modal fade" id="twitter-dialog">
+				  <div class="modal-dialog">
+				    <div class="modal-content">
+				      <div class="modal-header">
+				        <button type="button" class="close" id="twitter-dialog-close" aria-hidden="true">&times;</button>
+				        <h4 class="modal-title">Add a twitter account</h4>
+				      </div>
+				      <div class="modal-body">
+				      	<h3>Does the account belong to you?</h3>
+				      	<div class="radio">
+						  <label>
+						    <input checked type="radio" name="optionsRadios" id="add-twitter-yes" value="yes">
+						    <strong>Yes</strong><br />Authorise BirdBath to tweet on your behalf.
+						  </label>
+						</div>
+						<div class="radio">
+						  <label>
+						    <input type="radio" name="optionsRadios" id="add-twitter-no" value="no">
+						    <strong>No</strong><br />Request permission to tweet from the account owner.
+						  </label>
+						</div>
+						<input style="display: none;" type="email" autofocus class="form-control" id="twitter-username" placeholder="Twitter username">
+						<div class="alert-danger" id="twitter-add-error"></div>
+				      </div>
+				      <div class="modal-footer">
+				      	<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+				        <a href="#" class="btn btn-primary" id="confirm-add-twitter">Continue</a>
+				      </div>
+				    </div>
+				  </div>
+				</div>
 	  		% }
 
 		    <ul class="nav navbar-nav navbar-right">

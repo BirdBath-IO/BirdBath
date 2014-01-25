@@ -2,12 +2,28 @@
 % title 'Welcome';
 % if(stash 'user') {
 	<script>
-
+		var user = {
+			provider: "<%= (stash 'user')->{provider} %>",
+			id: "<%= (stash 'user')->{id} %>"
+		};
 		var birdbath = angular.module('birdbath', []);
 		birdbath.controller('BirdBath', function ($scope, $http, $q, $location, $timeout) {
 			$scope.tweets = [];
 			$scope.accounts = [];
 			$scope.selected_account = null;
+
+			$scope.canPost = false;
+			$scope.updateCanPost = function() {
+				for(var a in $scope.accounts) {
+				console.log($scope.accounts[a]);
+					if($scope.isContributorAdminOrEditor($scope.accounts[a])) {
+						$scope.canPost = true;
+						if(!$scope.selected_account) $scope.selected_account = $scope.accounts[a];
+						return;
+					}
+				}
+				$scope.canPost = false;
+			}
 
 			$scope.fromNow = function(date) {
 				return moment(date).fromNow();
@@ -22,13 +38,34 @@
 
 			$scope.getAccounts = function() {
 				$http.get('/accounts').success(function(d) {
-					if(!$scope.selected_account) $scope.selected_account = d[0];
 					$scope.accounts = d;
+					$scope.updateCanPost();
 				});
 			};
 			$scope.getAccounts();
 			$scope.selectAccount = function(account) {
 				$scope.selected_account = account;
+			}
+
+			$scope.getAccount = function(name) {
+				for(var a in $scope.accounts) {
+					if($scope.accounts[a].screen_name == name) {
+						return $scope.accounts[a];
+					}
+				}
+				return null;
+			}
+
+			$scope.isAdmin = function(account) {
+				return account.role == 'admin';
+			}
+
+			$scope.isAdminOrEditor = function(account) {
+				return (account.role == 'admin' || account.role == 'editor');
+			}
+
+			$scope.isContributorAdminOrEditor = function(account) {
+				return (account.role == 'admin' || account.role == 'editor' || account.role == 'contributor');
 			}
 
 			$scope.sendTweet = function() {
@@ -91,33 +128,35 @@
 		});
 	</script>
 	<div class="application" ng-controller="BirdBath" ng-app="birdbath">
-		<h2>Post a tweet</h2>
-		<form class="post_tweet padded" ng-init="type = 'Tweet'">
-			<div class="input-group">
-				<div class="input-group-btn">
-			        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><img src="{{ selected_account.profile.image_url }}" style="width: 18px" /> {{ selected_account.profile.name }} <span class="caret"></span></button>
-			        <ul class="dropdown-menu">
-			          <li ng-click="selectAccount(account)" ng-repeat="account in accounts" style="padding: 3px 10px"><img src="{{ account.profile.image_url }}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
-			        </ul>
-			    </div>
-			    <!--
-			    <div class="input-group-btn">
-			        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="border-radius: 0">{{ type }} <span class="caret"></span></button>
-			        <ul class="dropdown-menu">
-			          <li ng-click="type = 'Tweet'" style="padding: 3px 10px">Tweet</li>
-			          <li ng-click="type = 'Retweet'" style="padding: 3px 10px">Retweet</li>
-			        </ul>
-			    </div>
-			    <span ng-if="type == 'Retweet'" class="form-control">
-		    		<h3>Find a tweet</h3>
-		    	</span>
-			    -->
-		    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
-				<span class="input-group-btn">
-					<button type="submit" ng-click="sendTweet()" class="btn btn-default">Post</button>
-				</span>
-			</div>
-		</form>
+		<div ng-if="canPost">
+			<h2>Post a tweet</h2>
+			<form class="post_tweet padded" ng-init="type = 'Tweet'">
+				<div class="input-group">
+					<div class="input-group-btn">
+				        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><img src="{{ selected_account.profile.image_url }}" style="width: 18px" /> {{ selected_account.profile.name }} <span class="caret"></span></button>
+				        <ul class="dropdown-menu">
+				          <li ng-click="selectAccount(account)" ng-repeat="account in accounts | filter:isContributorAdminOrEditor" style="padding: 3px 10px"><img src="{{ account.profile.image_url }}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
+				        </ul>
+				    </div>
+				    <!--
+				    <div class="input-group-btn">
+				        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="border-radius: 0">{{ type }} <span class="caret"></span></button>
+				        <ul class="dropdown-menu">
+				          <li ng-click="type = 'Tweet'" style="padding: 3px 10px">Tweet</li>
+				          <li ng-click="type = 'Retweet'" style="padding: 3px 10px">Retweet</li>
+				        </ul>
+				    </div>
+				    <span ng-if="type == 'Retweet'" class="form-control">
+			    		<h3>Find a tweet</h3>
+			    	</span>
+				    -->
+			    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
+					<span class="input-group-btn">
+						<button type="submit" ng-click="sendTweet()" class="btn btn-default">Post</button>
+					</span>
+				</div>
+			</form>
+		</div>
 
 		<div class="modal fade" id="approve-dialog">
 		  <div class="modal-dialog">
@@ -186,23 +225,21 @@
 					</span>
 					<span ng-switch-when="Rejected" class="rejected_by">
 						Rejected by {{ tweet.rejected_by.name }} about {{ fromNow(tweet.rejected) }}
-						% if((stash 'user')->{_birdbath}->{role} ne 'Contributor') {
-							<button class="btn btn-sm btn-default" ng-click="undoReject(tweet)">Undo</button>
-						% }
+						<button ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))" class="btn btn-sm btn-default" ng-click="undoReject(tweet)">Undo</button>
 					</span>
 					<span ng-switch-when="Unapproved">
 						<span ng-if="tweet.last_edit" class="last-edit">
 							Edited by {{ tweet.last_edit.edited_by.name }} about {{ fromNow(tweet.last_edit.edited) }}
 						</span>
-						% if((stash 'user')->{_birdbath}->{role} ne 'Contributor') {				
-							<button class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
+						<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">
+							<button  class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
 
 							<button class="btn btn-sm btn-default" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
 							<button class="btn btn-sm btn-warning" ng-click="editOrSave(tweet)" ng-if="tweet.$editing">Save</button>
 
 							<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
 							<button class="btn btn-sm btn-danger" ng-click="reject(tweet)" ng-if="tweet.status != 'Approved'">Reject</button>
-						% }
+						</span>
 					</span>
 				</div>
 				<img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=18" />

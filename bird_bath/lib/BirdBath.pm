@@ -61,6 +61,7 @@ sub startup {
   $auth->post('/reject')->to('home#reject');
   $auth->post('/undo')->to('home#undo');
   $auth->post('/update')->to('home#update');
+  $auth->post('/request')->to('home#request');
 }
 
 1;
