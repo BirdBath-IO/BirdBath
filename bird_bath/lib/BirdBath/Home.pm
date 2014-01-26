@@ -21,8 +21,16 @@ sub accounts {
 	my $self = shift;
 
 	my $cursor = $self->app->accounts->find({
-		'users.provider' => $self->session->{user}->{provider},
-		'users.id' => $self->session->{user}->{id},
+		'$or' => [
+			{
+				'users.provider' => $self->session->{user}->{provider},
+				'users.id' => $self->session->{user}->{id},
+			},
+			{
+				'requests.provider' => $self->session->{user}->{provider},
+				'requests.id' => $self->session->{user}->{id},	
+			}
+		]
 	});
 	$cursor->all(sub {
 		my ($mango, $error, $docs) = @_;
@@ -32,10 +40,12 @@ sub accounts {
 		my @accounts;
 		for my $doc (@$docs) {
 			my $user;
+			my $is_request = 1;
 			for my $u (@{$doc->{users}}) {
-				if($u->{provider}eq $self->session->{user}->{provider} &&
+				if($u->{provider} eq $self->session->{user}->{provider} &&
 				   $u->{id} eq $self->session->{user}->{id}) {
 					$user = $u;
+					$is_request = 0;
 					last;
 				}
 			}
@@ -53,6 +63,7 @@ sub accounts {
 				    username => $doc->{owner}->{username},
 				},
 				role => $user->{role},
+				request => $is_request,
 			};
 			if($user->{role} eq 'admin') {
 				$account->{requests} = $doc->{requests};
@@ -90,7 +101,7 @@ sub request {
 			}
 		}
 
-		$self->app->accounts->update({screen_name_lc => $username}, {
+		$self->app->accounts->update({screen_name_lc => lc($username)}, {
 			'$addToSet' => {
 				'requests' => {
 					provider => $self->session->{user}->{provider},
@@ -103,6 +114,255 @@ sub request {
 		} => sub {
 			my ($mango, $error, $doc) = @_;
 			die("DB error") if $error;
+			die("Not updated") if !$doc->{n};
+			return $self->render(json => { ok => 1 });
+		});
+	});
+
+	$self->render_later;
+}
+
+sub accept_user {
+	my $self = shift;
+
+	my $provider = $self->req->json->{provider};
+	my $id = $self->req->json->{id};
+	my $account = $self->req->json->{account};
+
+	$self->app->accounts->find_one({screen_name_lc => lc($account)} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{requests}}) {
+			if($u->{id} eq $id && $u->{provider} eq $provider) {
+				$user = $u;
+				last;
+			}
+		}
+
+		if(!$user) {
+			die("Request not found");
+		}
+
+		$self->app->accounts->update({screen_name_lc => lc($account)}, {
+			'$addToSet' => {
+				'users' => {
+					provider => $user->{provider},
+				    id => $user->{id},
+				    avatar => $user->{avatar},
+				    name => $user->{name},
+				    username => $user->{username},
+				    role => 'none',
+				}
+			},
+			'$pull' => {
+				'requests' => {
+					provider => $user->{provider},
+				    id => $user->{id},
+				    avatar => $user->{avatar},
+				    name => $user->{name},
+				    username => $user->{username},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			return $self->render(json => { ok => 1 });
+		});
+	});
+}
+
+sub reject_user {
+	my $self = shift;
+
+	my $provider = $self->req->json->{provider};
+	my $id = $self->req->json->{id};
+	my $account = $self->req->json->{account};
+
+	$self->app->accounts->find_one({screen_name_lc => lc($account)} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{requests}}) {
+			if($u->{id} eq $id && $u->{provider} eq $provider) {
+				$user = $u;
+				last;
+			}
+		}
+
+		if(!$user) {
+			die("Request not found");
+		}
+
+		$self->app->accounts->update({screen_name_lc => lc($account)}, {
+			'$pull' => {
+				'requests' => {
+					provider => $user->{provider},
+				    id => $user->{id},
+				    avatar => $user->{avatar},
+				    name => $user->{name},
+				    username => $user->{username},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			return $self->render(json => { ok => 1 });
+		});
+	});
+}
+
+sub remove_user {
+	my $self = shift;
+
+	my $account = $self->req->json->{account};
+	my $provider = $self->req->json->{provider};
+	my $id = $self->req->json->{id};
+
+	$self->app->accounts->find_one({
+		screen_name_lc => lc($account),
+		'users.provider' => $provider,
+		'users.id' => $id
+	} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $id && $u->{provider} eq $provider) {
+				$user = $u;
+				last;
+			}
+		}
+
+		if(!$user) {
+			die("Request not found");
+		}
+
+		$self->app->accounts->update({
+			screen_name_lc => lc($account),
+			'users' => $user
+		}, {
+			'$pull' => {
+				'users' => $user
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			die("Not updated") if !$doc->{n};
+			return $self->render(json => { ok => 1 });
+		});
+	});
+
+	$self->render_later;
+}
+
+sub remove_account {
+	my $self = shift;
+
+	my $account = $self->req->json->{account};
+
+	$self->app->accounts->find_one({
+		screen_name_lc => lc($account),
+		'$or' => [
+			{
+				'users.provider' => $self->session->{user}->{provider},
+				'users.id' => $self->session->{user}->{id}
+			},{
+				'requests.provider' => $self->session->{user}->{provider},
+				'requests.id' => $self->session->{user}->{id}
+			}
+		]
+	} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $self->session->{user}->{id} && $u->{provider} eq $self->session->{user}->{provider}) {
+				$user = $u;
+				last;
+			}
+		}
+
+		my $request;
+		if(!$user) {
+			for my $u (@{$doc->{requests}}) {
+				if($u->{id} eq $self->session->{user}->{id} && $u->{provider} eq $self->session->{user}->{provider}) {
+					$request = $u;
+					last;
+				}
+			}
+		}
+
+		if(!$user && !$request) {
+			die("Request not found");
+		}
+
+		my %args = ();
+		$args{users} = $user if $user;
+		$args{requests} = $request if $request;
+
+		$self->app->accounts->update({
+			screen_name_lc => lc($account),
+			%args
+		}, {
+			'$pull' => {
+				%args
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			die("Not updated") if !$doc->{n};
+			return $self->render(json => { ok => 1 });
+		});
+	});
+
+	$self->render_later;
+}
+
+sub save_user {
+	my $self = shift;
+
+	my $provider = $self->req->json->{provider};
+	my $id = $self->req->json->{id};
+	my $account = $self->req->json->{account};
+	my $role = $self->req->json->{role};
+
+	$self->app->accounts->find_one({screen_name_lc => lc($account)} => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $id && $u->{provider} eq $provider) {
+				$user = $u;
+				last;
+			}
+		}
+
+		if(!$user) {
+			die("Request not found");
+		}
+
+		$self->app->accounts->update({
+			screen_name_lc => lc($account),
+			'users' => $user
+		}, {
+			'$set' => {
+				'users.$.role' => $role
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			die("Not updated") if !$doc->{n};
 			return $self->render(json => { ok => 1 });
 		});
 	});

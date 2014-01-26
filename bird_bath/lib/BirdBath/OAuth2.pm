@@ -31,10 +31,14 @@ sub callback {
 	$oauth2->receive_code($params)->get_token->on(
 		access_denied => sub {
 			my ($oauth2, $errors) = @_;
+			print "Access Denied:\n";
+			use Data::Dumper; print Dumper $errors;
 			$self->render(errors => $errors);
 		},
 		failure => sub {
 			my ($oauth2, $error) = @_;
+			print "Failure:\n";
+			use Data::Dumper; print Dumper $error;
 			$self->render(errors => $error);
 		},
 		success => sub {
@@ -42,34 +46,28 @@ sub callback {
 			$self->session->{oauth2}->{token} = $token;
 
 			my $url = $self->config->{oauth2_providers}->{$provider}->{profile_url} . '?access_token=' . $token->{access_token};
-			$self->ua->get($url, { Accept => 'application/json' } => sub {
+			$self->ua->get($url, { Authorization => 'Bearer ' . $token->{access_token}, Accept => 'application/json' } => sub {
 				my ($ua, $tx) = @_;
+				use Data::Dumper; print Dumper $tx;
 				if($tx->success) {
+					my $profile = $self->config->{oauth2_providers}->{$provider}->{transform_profile}->($tx->success->json);
+					$profile->{profile} = $tx->success->json;
+					$profile->{provider} = $provider;
 					$self->users->update({
 						provider => $provider,
-						id => $tx->success->json->{id},
-					},{
-						provider => $provider,
-						id => $tx->success->json->{id},
-						avatar => $tx->success->json->{avatar_url},
-						name => $tx->success->json->{name},
-						username => $tx->success->json->{login},
-						profile => $tx->success->json,
-					},{ upsert => 1} => sub {
+						id => $profile->{id},
+					},$profile,{ upsert => 1} => sub {
 						my ($mango, $error, $doc) = @_;
 						die("DB error") if $error;
 						die("Not updated") if !$doc->{n};
 						# TODO this is probably github specific
-						$self->session->{user} = {
-							provider => $provider,
-							id => $tx->success->json->{id},
-							avatar => $tx->success->json->{avatar_url},
-							name => $tx->success->json->{name},
-							username => $tx->success->json->{login},
-						};
+						delete $profile->{profile};
+						$self->session->{user} = $profile;
 						$self->redirect_to('/');
 					});
 				} else {
+					print "Error getting profile:\n";
+					use Data::Dumper; print Dumper $tx->error;
 					$self->render(errors => $tx->error);
 				}
 			});

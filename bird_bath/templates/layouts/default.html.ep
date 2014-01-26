@@ -5,12 +5,15 @@
   	<script src="//code.jquery.com/jquery-1.10.1.min.js"></script>
   	<script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.7/angular.js"></script>
   	<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment-with-langs.js"></script>
+  	<script src="//code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+  	<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" />
   	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.css" />
   	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap-theme.css" />
   	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css" />
   	<link rel="stylesheet" href="/bootstrap-social.css" />
   	<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.js"></script>
   	<link rel="icon" type="image/png" href="/icon-36.png">
+  	<meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
   <body>
   	<div class="container">
@@ -23,7 +26,7 @@
 		      <span class="icon-bar"></span>
 		      <span class="icon-bar"></span>
 		    </button>
-		    <a class="navbar-brand" href="#"><img src="/icon-20.png" /> BirdBath</a>
+		    <a class="navbar-brand" href="/#"><img src="/icon-20.png" /> BirdBath</a>
 		  </div>
 
 		  <!-- Collect the nav links, forms, and other content for toggling -->
@@ -31,10 +34,11 @@
 		  	% if((stash 'user')) {
 			  	<ul class="nav navbar-nav">
 	      			<li><a href="#" id="add-twitter-account"><span class="glyphicon glyphicon-plus"></span> Add twitter account</a></li>
-	      			<!--<li><a href="/manage"><span class="glyphicon glyphicon-lock"></span> Manage accounts</a></li>-->
+	      			<li id="account-manage" style="display: none;"><a href="/manage"><span class="glyphicon glyphicon-lock"></span> Manage accounts</a></li>
 	      		</ul>
 
 	      		<script>
+	      		var addTwitterCallback;
 	      		$(function() {
 	      			$('#twitter-username').hide();
 	      			$('#twitter-add-error').hide();
@@ -71,6 +75,9 @@
 		      							$('#twitter-username').val('');
 		      							$('#twitter-username').hide();
 		      							$('#twitter-add-error').hide();
+		      							if(addTwitterCallback) {
+		      								addTwitterCallback();
+		      							}
 	      							} else {
 	      								$('#twitter-add-error').show();
 	      								$('#twitter-add-error').html(d.error);
@@ -124,6 +131,7 @@
 		    % if(!(stash 'user')) {
 		      <li><a href="/login">Login</a></li>
 		    % } else {
+		      <li style="display: none" id="account-requests"><a href="/manage"><span class="glyphicon glyphicon-user"></span> <span id="account-request-total">0</span> account request<span id="account-request-plural">s</span></a></li>
 		      <li><a href="/logout">Logout</a></li>
 		      <li>
 		        <a><img src="<%= (stash 'user')->{avatar} %>" style="height: 18px; margin-right: 4px" /> <%= (stash 'user')->{name} %></a>

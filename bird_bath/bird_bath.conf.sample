@@ -1,12 +1,28 @@
 {
-	github => {
-		client_id => "",
-		client_secret => "",
-		redirect_uri => ""
-	},
+	oauth2_providers => {
+		github => {
+			client_id => "",
+			client_secret => "",
+			redirect_uri => "",
+			authorize_url => "",
+			token_url => "",
+			profile_url => "",
+			transform_profile => sub {
+				my ($profile) = @_;
+				return {
+					id => $profile->{id},
+					avatar => $profile->{avatar_url},
+					name => $profile->{name},
+					username => $profile->{login},
+				}
+			}
+		},
+	}
 	twitter => {
 		consumer_key => "",
 		consumer_secret => "",
-		callback => ""
+		callback => "",
+		access_token => "",
+		access_token_secret => "",
 	}
 };

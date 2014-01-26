@@ -51,9 +51,10 @@ sub startup {
 
   my $auth = $r->bridge->to(cb => sub {
   	my $self = shift;
-  	return 0 unless $self->session->{user};
+  	return $self->redirect_to('/login') unless $self->session->{user};
   	return 1;
   });
+  $auth->get('/manage')->to('manage#welcome');
   $auth->get('/tweets')->to('home#tweets');
   $auth->post('/tweets')->to('home#tweet');
   $auth->get('/accounts')->to('home#accounts');
@@ -65,6 +66,11 @@ sub startup {
   $auth->post('/search')->to('search#search');
   $auth->post('/timeline')->to('search#timeline');
   $auth->post('/retweet')->to('home#retweet');
+  $auth->post('/user-approve')->to('home#accept_user');
+  $auth->post('/user-reject')->to('home#reject_user');
+  $auth->post('/user-save')->to('home#save_user');
+  $auth->post('/account-remove')->to('home#remove_account');
+  $auth->post('/user-remove')->to('home#remove_user');
 }
 
 1;

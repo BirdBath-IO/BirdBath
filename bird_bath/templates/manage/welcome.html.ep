@@ -1,0 +1,312 @@
+% layout 'default';
+% title 'Welcome';
+% if(stash 'user') {
+	<script>
+		var user = {
+			provider: "<%= (stash 'user')->{provider} %>",
+			id: "<%= (stash 'user')->{id} %>"
+		};
+		var birdbath = angular.module('birdbath', []);
+		birdbath.controller('BirdBath', function ($scope, $http, $q, $location, $timeout) {
+			$scope.accounts = [];
+
+			$scope.fromNow = function(date) {
+				return moment(date).fromNow();
+			}
+
+			$scope.roles = [
+				'admin', 'editor', 'contributor', 'none'
+			];
+
+			addTwitterCallback = function() {
+				$scope.$apply(function() {
+					$scope.getAccounts();
+				});
+			}
+
+			$scope.getAccounts = function() {
+				$http.get('/accounts').success(function(d) {
+					for(var a in d) {
+						var byRole = {
+							admin: [],
+							editor: [],
+							contributor: [],
+							none: [],
+							requests: [],
+						};
+						for(var u in d[a].users) {
+							byRole[d[a].users[u].role].push(d[a].users[u]);
+						}
+						byRole.requests = d.requests;
+						d[a].$byRole = byRole;
+						d[a].$isOwner = $scope.isOwner(d[a]);
+						d[a].$isOwnerOrAdmin = $scope.isOwnerOrAdmin(d[a]);
+					}
+					$scope.accounts = d;
+					$scope.updateRequests();
+					if(d.length > 0) {
+						$('#account-manage').show();
+					} else {
+						$('#account-manage').hide();
+					}
+				});
+			};
+			$scope.getAccounts();
+
+			$scope.updateRequests = function() {
+				var req = 0;
+				for(var a in $scope.accounts) {
+					if($scope.accounts[a].requests) {
+						req += $scope.accounts[a].requests.length;
+					}
+				}
+				if(req > 0) {
+					$('#account-request-total').text(req);
+					$('#account-request-plural').text(req == 1 ? '' : 's');
+				} else {
+					$('#account-requests').hide();
+				}
+			}
+
+			$scope.getAccount = function(name) {
+				for(var a in $scope.accounts) {
+					if($scope.accounts[a].screen_name == name) {
+						return $scope.accounts[a];
+					}
+				}
+				return null;
+			}
+
+			$scope.isOwner = function(account) {
+				return account.owner.provider == user.provider && account.owner.id == user.id;
+			}
+
+			$scope.isAdmin = function(account) {
+				return account.role == 'admin';
+			}
+
+			$scope.isOwnerOrAdmin = function(account) {
+				return ($scope.isOwner(account) || $scope.isAdmin(account));
+			}
+
+			$scope.isAdminOrEditor = function(account) {
+				return (account.role == 'admin' || account.role == 'editor');
+			}
+
+			$scope.isContributorAdminOrEditor = function(account) {
+				return (account.role == 'admin' || account.role == 'editor' || account.role == 'contributor');
+			}
+
+			$scope.rejectUser = function(account, user) {
+				$http.post('/user-reject', {
+					provider: user.provider,
+					id: user.id,
+					account: account.screen_name
+				}).success(function(d) {
+					user.$rejected = true;
+					$scope.getAccounts();
+				});
+			}
+
+			$scope.saveUser = function(account, user) {
+				$http.post('/user-save', {
+					provider: user.provider,
+					id: user.id,
+					account: account.screen_name,
+					role: user.role
+				}).success(function(d) {
+					$scope.getAccounts();
+				});
+			}
+
+			$scope.approveUser = function(account, user) {
+				$http.post('/user-approve', {
+					provider: user.provider,
+					id: user.id,
+					account: account.screen_name
+				}).success(function(d) {
+					user.$rejected = true;
+					$scope.getAccounts();
+				});
+			}
+
+			$scope.removeAccount = function(account) {
+				$scope.removing = account;
+				$('#remove-account-dialog').modal('show');
+			}
+			$scope.confirmRemoveAccount = function() {
+				$http.post('/account-remove', {
+					account: $scope.removing.screen_name
+				}).success(function(d) {
+					$scope.getAccounts();
+					$scope.removing = null;
+					$('#remove-account-dialog').modal('hide');
+				});
+			}
+
+			$scope.removeUser = function(account, user) {
+				$scope.removingUser = {
+					account: account,
+					user: user
+				};
+				$('#remove-user-dialog').modal('show');
+			}
+			$scope.confirmRemoveUser = function() {
+				$http.post('/user-remove', {
+					account: $scope.removingUser.account.screen_name,
+					id: $scope.removingUser.user.id,
+					provider: $scope.removingUser.user.provider,
+				}).success(function(d) {
+					$scope.getAccounts();
+					$scope.removingUser = null;
+					$('#remove-user-dialog').modal('hide');
+				});
+			}
+		});
+	</script>
+	<div class="application" ng-controller="BirdBath" ng-app="birdbath">
+		<h2>Accounts</h2>
+		<style>
+			.user {
+				-webkit-user-select: none;  
+				-moz-user-select: none;    
+				-ms-user-select: none;      
+				user-select: none;
+				display: inline-block;
+				vertical-align: top;
+			}
+			.user select {
+				padding: 0;
+				height: 20px;
+				line-height: auto;
+			}
+			.request {
+				background: #CCFFCC;
+			}
+			.drop-target {
+				margin-bottom: 5px;
+			}
+		</style>
+
+		<div class="modal fade" id="remove-account-dialog">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+		        <h4 class="modal-title">Remove account</h4>
+		      </div>
+		      <div class="modal-body">
+		        <h2>Are you sure you want to remove this account?</h2>
+		        <p>
+		        	You will no longer be able to access this account.
+		        </p>
+		        <p>
+		        	To use the account again, you will need to request permission from the account owner.
+		        </p>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+		        <button type="button" class="btn btn-danger" ng-click="confirmRemoveAccount()">Remove account</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+
+		<div class="modal fade" id="remove-user-dialog">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+		        <h4 class="modal-title">Remove user</h4>
+		      </div>
+		      <div class="modal-body">
+		        <h2>Are you sure you want to remove this user?</h2>
+		        <p>
+		        	This user will no longer be able to access this account.
+		        </p>
+		        <p>
+		        	To use the account again, the user will need to request your permission.
+		        </p>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+		        <button type="button" class="btn btn-danger" ng-click="confirmRemoveUser()">Remove user</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+
+		<div ng-repeat="account in accounts" class="clearfix">
+			<h3>@{{ account.screen_name }}</h3>
+			<div ng-if="!account.$isOwnerOrAdmin" class="container">
+				<p>
+					This account belongs to <img src="{{ account.owner.avatar }}" style="height: 18px" /> <a href="//github.com/{{ account.owner.username }}">{{ account.owner.name }}</a>.
+				</p>
+				<p ng-if="!account.request">
+					You are an account 
+					<span ng-if="account.role == 'admin'">administrator</span>
+					<span ng-if="account.role == 'editor'">editor</span>
+					<span ng-if="account.role == 'contributor'">contributor</span>
+					<span ng-if="account.role == 'none'">viewer</span>
+				</p>
+				<p ng-if="account.request">
+					You haven't been approved to use this account.
+				</p>
+				<p>
+					<button ng-click="removeAccount(account)" class="btn btn-danger">Remove account</button>
+				</p>
+			</div>
+			<div ng-if="account.$isOwnerOrAdmin" class="container">
+				<span ng-repeat="role in roles">
+					<span ng-repeat="user in account.$byRole[role]" class="user list-group-item" data-drag="true" data-jqyoui-options="{revert: 'invalid'}" jqyoui-draggable="{animate:true}" ng-model="user">
+						<div style="margin-bottom: 8px;">
+							<img src="{{ user.avatar }}" style="height: 28px" /> 
+							{{ user.name }}
+						</div>
+						<div>
+							<span ng-if="user.$editing">
+								<div style="margin-bottom: 5px;">
+									<select autofocus class="form-control input-sm" ng-model="user.role">
+										<option ng-selected="role == 'admin'" value="admin">Admin</option>
+										<option ng-selected="role == 'editor'" value="editor">Editor</option>
+										<option ng-selected="role == 'contributor'" value="contributor">Contributor</option>
+										<option ng-selected="role == 'none'" value="none">View only</option>
+									</select>
+								</div>
+								<button ng-click="saveUser(account, user)" class="btn btn-xs btn-primary">Save</button>
+								<button ng-click="user.$editing = false" class="btn btn-xs btn-default">Cancel</button>
+							</span>
+							<span ng-if="user.id != account.owner.id || user.provider != account.owner.provider">
+								<span ng-if="!user.$editing" ng-click="user.$editing = true">
+									<span class="glyphicon glyphicon-edit"></span> 
+									<span ng-if="role == 'admin'">Admin</span>
+									<span ng-if="role == 'editor'">Editor</span>
+									<span ng-if="role == 'contributor'">Contributor</span>
+									<span ng-if="role == 'none'">View only</span>
+								</span>
+							</span>
+							<span ng-if="user.id == account.owner.id && user.provider == account.owner.provider">
+								Account owner
+							</span>
+						</div>
+						<div style="margin-top: 5px">
+							<button ng-click="removeUser(account, user)" class="btn btn-xs btn-danger" ng-disabled="user.id == account.owner.id && user.provider == account.owner.provider">Remove</button>
+						</div>
+					</span>
+				</span>
+				<span ng-repeat="user in account.requests" class="user request list-group-item" data-drag="true" data-jqyoui-options="{revert: 'invalid'}" jqyoui-draggable="{animate:true}" ng-model="user">
+					<div style="margin-bottom: 8px;">
+						<img src="{{ user.avatar }}" style="height: 28px" /> 
+						{{ user.name }}
+					</div>
+					<div>
+						<button ng-click="approveUser(account, user)" class="btn btn-xs btn-primary">Accept</button>
+						<button ng-click="rejectUser(account, user)" class="btn btn-xs btn-danger">Reject</button>
+					</div>
+				</span>
+			</div>
+		</div>
+	</div>
+% } else {
+	<h3 style="text-align: center; margin-top: 40px"><a href="/login">Login to continue</a></h3>
+% }

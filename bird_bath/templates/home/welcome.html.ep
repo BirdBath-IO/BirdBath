@@ -12,6 +12,12 @@
 			$scope.accounts = [];
 			$scope.selected_account = null;
 
+			addTwitterCallback = function() {
+				$scope.$apply(function() {
+					$scope.getAccounts();
+				});
+			}
+
 			$scope.canPost = false;
 			$scope.updateCanPost = function() {
 				for(var a in $scope.accounts) {
@@ -40,11 +46,32 @@
 				$http.get('/accounts').success(function(d) {
 					$scope.accounts = d;
 					$scope.updateCanPost();
+					$scope.updateRequests();
+					if(d.length > 0) {
+						$('#account-manage').show();
+					} else {
+						$('#account-manage').hide();
+					}
 				});
 			};
 			$scope.getAccounts();
 			$scope.selectAccount = function(account) {
 				$scope.selected_account = account;
+			}
+			$scope.updateRequests = function() {
+				var req = 0;
+				for(var a in $scope.accounts) {
+					if($scope.accounts[a].requests) {
+						req += $scope.accounts[a].requests.length;
+					}
+				}
+				if(req > 0) {
+					$('#account-request-total').text(req);
+					$('#account-request-plural').text(req == 1 ? '' : 's');
+					$('#account-requests').show();
+				} else {
+					$('#account-requests').hide();
+				}
 			}
 
 			$scope.getAccount = function(name) {
@@ -66,6 +93,10 @@
 
 			$scope.isContributorAdminOrEditor = function(account) {
 				return (account.role == 'admin' || account.role == 'editor' || account.role == 'contributor');
+			}
+
+			$scope.addTwitter = function() {
+				$('#add-twitter-account').click();
 			}
 
 			$scope.sendTweet = function() {
@@ -286,93 +317,107 @@
 		  </div>
 		</div>
 
-		<h2>Tweets</h2>
+		<div ng-if="accounts.length == 0 && tweets.length == 0 && !canPost" style="text-align: center">
+			<h2>Welcome to BirdBath</h2>
+			<button ng-click="addTwitter()" class="btn btn-primary">Add a twitter account to get started</button>
+		</div>
+		<div ng-if="accounts.length > 0 && tweets.length == 0 && !canPost" style="text-align: center">
+			<h2>Welcome to BirdBath</h2>
+			<p>
+				You have not been approved to use any accounts.
+			</p>
+			<a href="/manage" class="btn btn-primary">Manage your accounts</a> <button ng-click="addTwitter()" class="btn btn-primary">Add another twitter account</button>
+		</div>
+		<div ng-if="tweets.length > 0">
+			<h2>Tweets</h2>
 
-		<style>
-			.content h2 {
-				margin-top: 20px;
-				margin-bottom: 20px;
-			}
-			.padded {
-				padding: 0 15px;
-			}
-			.margined {
-				margin-left: 15px;
-				margin-right: 15px;
-			}
-			.tweet {
+			<style>
+				.content h2 {
+					margin-top: 20px;
+					margin-bottom: 20px;
+				}
+				.padded {
+					padding: 0 15px;
+				}
+				.margined {
+					margin-left: 15px;
+					margin-right: 15px;
+				}
+				.tweet {
 
-			}
-			.tweet img {
-				border-radius: 2px;
-			}
-			.tweet .panel-body {
-				font-size: 18px;
-			}
-			.tweet .panel-heading button {
-				margin-top: -5px;
-			}
-			.tweet .panel-heading .pull-right {
-				margin-right: -10px;
-			}
-			.tweet .last-edit, .tweet .approved_by, .tweet .rejected_by {
-				font-size: 0.9em;
-			}
+				}
+				.tweet img {
+					border-radius: 2px;
+				}
+				.tweet .panel-body {
+					font-size: 18px;
+				}
+				.tweet .panel-heading button {
+					margin-top: -5px;
+				}
+				.tweet .panel-heading .pull-right {
+					margin-right: -10px;
+				}
+				.tweet .last-edit, .tweet .approved_by, .tweet .rejected_by {
+					font-size: 0.9em;
+				}
 
-			.input-group-btn {
-				vertical-align: top;
-			}
-		</style>
+				.input-group-btn {
+					vertical-align: top;
+				}
+			</style>
 
-		<div ng-repeat="tweet in tweets" class="tweet margined panel panel-default">
-			<div class="panel-heading">
-				<div class="pull-right" ng-switch="tweet.status">
-					<span ng-switch-when="Approved" class="approved_by">
-						Approved by {{ tweet.approved_by.name }} about {{ fromNow(tweet.approved) }}
-					</span>
-					<span ng-switch-when="Rejected" class="rejected_by">
-						Rejected by {{ tweet.rejected_by.name }} about {{ fromNow(tweet.rejected) }}
-						<button ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))" class="btn btn-sm btn-default" ng-click="undoReject(tweet)">Undo</button>
-					</span>
-					<span ng-switch-when="Unapproved">
-						<span ng-if="tweet.last_edit" class="last-edit">
-							Edited by {{ tweet.last_edit.edited_by.name }} about {{ fromNow(tweet.last_edit.edited) }}
+			<div ng-repeat="tweet in tweets" class="tweet margined panel panel-default">
+				<div class="panel-heading">
+					<div class="pull-right" ng-switch="tweet.status">
+						<span ng-switch-when="Approved" class="approved_by">
+							Approved by {{ tweet.approved_by.name }} about {{ fromNow(tweet.approved) }}
 						</span>
-						<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">
-							<button ng-if="!tweet.retweet" class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
-
-							<button class="btn btn-sm btn-default" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
-							<button class="btn btn-sm btn-warning" ng-click="editOrSave(tweet)" ng-if="tweet.$editing">Save</button>
-
-							<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
-							<button class="btn btn-sm btn-danger" ng-click="reject(tweet)" ng-if="tweet.status != 'Approved'">Reject</button>
+						<span ng-switch-when="Rejected" class="rejected_by">
+							Rejected by {{ tweet.rejected_by.name }} about {{ fromNow(tweet.rejected) }}
+							<button ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))" class="btn btn-sm btn-default" ng-click="undoReject(tweet)">Undo</button>
 						</span>
+						<span ng-switch-when="Unapproved">
+							<span ng-if="tweet.last_edit" class="last-edit">
+								Edited by {{ tweet.last_edit.edited_by.name }} about {{ fromNow(tweet.last_edit.edited) }}
+							</span>
+							<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">
+								<button ng-if="!tweet.retweet" class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
+
+								<button class="btn btn-sm btn-default" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
+								<button class="btn btn-sm btn-warning" ng-click="editOrSave(tweet)" ng-if="tweet.$editing">Save</button>
+
+								<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
+								<button class="btn btn-sm btn-danger" ng-click="reject(tweet)" ng-if="tweet.status != 'Approved'">Reject</button>
+							</span>
+						</span>
+					</div>
+					<img src="{{ tweet.user.avatar }}&s=18" style="width: 18px" />
+					<!-- TODO github specific -->
+					<a href="//github.com/{{ tweet.user.username }}">{{ tweet.user.name }}</a>
+					<span ng-if="tweet.retweet">
+						retweeted 
+						<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 18px; margin-left: 4px;" />
+						 <a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a> 
+						from 
+						</span>
+					<span ng-if="!tweet.retweet">tweeted from </span>
+					<img src="{{ tweet.account.avatar }}" style="width: 18px; margin-left: 4px;" />
+					<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
+					 about 
+					{{ fromNow(tweet.created) }}
+				</div>
+				<div class="panel-body" ng-if="!tweet.retweet">
+					<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
+					<span ng-if="tweet.$editing">
+						<input autofocus type="text" class="form-control input-lg" ng-model="tweet.message" />
 					</span>
 				</div>
-				<img src="//gravatar.com/avatar/{{ tweet.user.gravatar_id }}?s=18" />
-				<a href="//github.com/{{ tweet.user.login }}">{{ tweet.user.name }}</a>
-				<span ng-if="tweet.retweet">
-					retweeted 
-					<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 18px; margin-left: 4px;" />
-					 <a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a> 
-					from 
-					</span>
-				<span ng-if="!tweet.retweet">tweeted from </span>
-				<img src="{{ tweet.account.avatar }}" style="width: 18px; margin-left: 4px;" />
-				<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
-				 about 
-				{{ fromNow(tweet.created) }}
-			</div>
-			<div class="panel-body" ng-if="!tweet.retweet">
-				<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
-				<span ng-if="tweet.$editing">
-					<input autofocus type="text" class="form-control input-lg" ng-model="tweet.message" />
-				</span>
-			</div>
-			<div class="panel-body" ng-if="tweet.retweet">
-				<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 28px; margin-left: 4px;" />
-				<a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a>
-				{{ tweet.tweet.text }}
+				<div class="panel-body" ng-if="tweet.retweet">
+					<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 28px; margin-left: 4px;" />
+					<a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a>
+					{{ tweet.tweet.text }}
+				</div>
 			</div>
 		</div>
 	</div>
