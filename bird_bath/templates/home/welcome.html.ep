@@ -99,6 +99,7 @@
 			}
 
 			$scope.sendTweet = function() {
+			console.log($scope);
 				$http.post('/tweets', { message: $scope.message, account: $scope.selected_account.screen_name }).success(function(d) {
 					$scope.message = "";
 					$scope.getTweets();
@@ -232,7 +233,7 @@
 			    		@{{ selected_tweet.user.screen_name }}
 			    		{{ selected_tweet.text }}
 			    	</span>
-			    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="message" placeholder="Post a tweet" />
+			    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="$parent.$parent.message" placeholder="Post a tweet" />
 					<span class="input-group-btn">
 						<button type="submit" ng-click="type == 'Tweet' ? sendTweet() : sendRetweet()" class="btn btn-default">Post</button>
 					</span>
@@ -424,5 +425,6 @@
 		</div>
 	</div>
 % } else {
-	<h3 style="text-align: center; margin-top: 40px"><a href="/login">Login to continue</a></h3>
+	<h1 style="text-align: center; margin-top: 40px">Welcome to BirdBath</h1>
+	<h2 style="text-align: center;"><a href="/login">Login to continue</a></h2>
 % }
