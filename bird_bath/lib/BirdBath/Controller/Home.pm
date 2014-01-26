@@ -617,10 +617,6 @@ sub undo {
 sub approve {
 	my $self = shift;
 
-	# TODO do this properly
-	# die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
-	warn "AUTHENTICATION AND ROLES ON APPROVE";
-
 	my $message = $self->req->json->{tweet};
 	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
 		my ($mango, $error, $tweet) = @_;

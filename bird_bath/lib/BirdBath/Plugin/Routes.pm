@@ -30,8 +30,15 @@ sub register {
 		};
 		$self->accounts->find_one($args => sub {
 			my ($mango, $error, $doc) = @_;
-			die("DB error") if $error;
-			die("Not found") if !$doc;
+			if($error) {
+				$self->log->debug("Database error: $error");
+				$self->render_exception("Database error");
+				return 0;
+			}
+			if(!$doc) {
+				$self->render(status => 404, text => 'Account not found');
+				return 0;
+			}
 			$self->stash(account => $doc);
 			my $u;
 			for my $user (@{$doc->{users}}) {
@@ -50,9 +57,12 @@ sub register {
 	$account->bridge->name('contributor')->to(cb => sub {
 		my $self = shift;
 		my $u = $self->stash('account_user');
-		
-		die("Not a contributor") if !$u;
-		die("Not a contributor") if $u->{role} !~ /^(admin|editor|contributor)$/;
+
+		if(!$u || $u->{role} !~ /^(admin|editor|contributor)$/) {
+			$self->render(status => 401, text => 'Permission denied');
+			return 0;
+		}
+
 		return 1;
 	});
 
@@ -60,8 +70,11 @@ sub register {
 		my $self = shift;
 		my $u = $self->stash('account_user');
 		
-		die("Not a editor") if !$u;
-		die("Not a editor") if $u->{role} !~ /^(admin|editor)$/;
+		if(!$u || $u->{role} !~ /^(admin|editor)$/) {
+			$self->render(status => 401, text => 'Permission denied');
+			return 0;
+		}
+
 		return 1;
 	});
 
@@ -69,8 +82,11 @@ sub register {
 		my $self = shift;
 		my $u = $self->stash('account_user');
 		
-		die("Not a admin") if !$u;
-		die("Not a admin") if $u->{role} !~ /^(admin)$/;
+		if(!$u || $u->{role} !~ /^(admin)$/) {
+			$self->render(status => 401, text => 'Permission denied');
+			return 0;
+		}
+
 		return 1;
 	});
 }
