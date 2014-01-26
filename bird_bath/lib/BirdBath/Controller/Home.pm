@@ -1,4 +1,4 @@
-package BirdBath::Home;
+package BirdBath::Controller::Home;
 
 use Mojo::Base 'Mojolicious::Controller';
 

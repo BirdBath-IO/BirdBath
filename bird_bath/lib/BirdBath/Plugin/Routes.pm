@@ -1,4 +1,4 @@
-package BirdBath::Plugin::Authentication;
+package BirdBath::Plugin::Routes;
 
 use Mojo::Base 'Mojolicious::Plugin';
 
@@ -7,6 +7,8 @@ has 'app';
 sub register {
 	my ($self, $app) = @_;
 	$self->app($app);
+
+	push @{$app->routes->namespaces}, 'BirdBath::Controller';
 
 	my $r = $app->routes->bridge('/')->name('root')->to(cb => sub {
 		my ($self) = @_;

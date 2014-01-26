@@ -1,4 +1,4 @@
-package BirdBath::OAuth2;
+package BirdBath::Controller::OAuth2;
 
 use Mojo::Base 'Mojolicious::Controller';
 use MojoX::OAuth2::Client;

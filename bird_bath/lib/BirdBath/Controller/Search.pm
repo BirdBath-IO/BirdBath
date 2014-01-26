@@ -1,4 +1,4 @@
-package BirdBath::Search;
+package BirdBath::Controller::Search;
 
 use Mojo::Base 'Mojolicious::Controller';
 

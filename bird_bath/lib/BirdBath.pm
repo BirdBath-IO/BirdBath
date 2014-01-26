@@ -10,7 +10,7 @@ sub startup {
 
   $self->plugin('BirdBath::Plugin::OAuth2');
   $self->plugin('BirdBath::Plugin::Mango');
-  $self->plugin('BirdBath::Plugin::Authentication');
+  $self->plugin('BirdBath::Plugin::Routes');
 
   my $r = $self->routes->find('root');
   $r->get('/')->to('home#welcome');

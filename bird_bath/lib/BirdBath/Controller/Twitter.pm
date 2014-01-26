@@ -1,4 +1,4 @@
-package BirdBath::Twitter;
+package BirdBath::Controller::Twitter;
 
 use Mojo::Base 'Mojolicious::Controller';
 use Net::Twitter;
