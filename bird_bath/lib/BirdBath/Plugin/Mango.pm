@@ -1,6 +1,7 @@
 package BirdBath::Plugin::Mango;
 
 use Mojo::Base 'Mojolicious::Plugin';
+use Mango;
 
 has 'app';
 

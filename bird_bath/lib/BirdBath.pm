@@ -1,6 +1,5 @@
 package BirdBath;
 use Mojo::Base 'Mojolicious';
-use Mango;
 
 sub startup {
   my $self = shift;
@@ -23,10 +22,10 @@ sub startup {
   $auth->get('/manage')->to('manage#welcome');
   $auth->get('/tweets')->to('home#tweets');
   $auth->get('/accounts')->to('home#accounts');
-  $auth->post('/request')->to('home#request');
+  $auth->post('/request')->to('manage#request');
   $auth->post('/search')->to('search#search');
   $auth->post('/timeline')->to('search#timeline');
-  $auth->post('/account-remove')->to('home#remove_account');
+  $auth->post('/account-remove')->to('manage#remove_account');
 
   # Contributor only
   my $contributor = $self->routes->find('contributor');
@@ -42,10 +41,10 @@ sub startup {
 
   # Admin only
   my $admin = $self->routes->find('admin');
-  $admin->post('/user-approve')->to('home#accept_user');
-  $admin->post('/user-reject')->to('home#reject_user');
-  $admin->post('/user-save')->to('home#save_user');  
-  $admin->post('/user-remove')->to('home#remove_user');
+  $admin->post('/user-approve')->to('manage#accept_user');
+  $admin->post('/user-reject')->to('manage#reject_user');
+  $admin->post('/user-save')->to('manage#save_user');  
+  $admin->post('/user-remove')->to('manage#remove_user');
 }
 
 1;
