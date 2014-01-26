@@ -9,7 +9,7 @@ sub register {
 	$self->app($app);
 
 	$app->helper(mango => sub {
-		state $mango = Mango->new;
+		state $mango = Mango->new($app->config->{mongodb}->{uri});
 		return $mango;
 	});
 

@@ -86,6 +86,7 @@ sub request {
 
 	$username = substr($username, 1) if substr($username, 0, 1) eq '@';
 
+	# Needs to lookup account again, its not user-specific like the bridge
 	$self->app->accounts->find_one({screen_name_lc => lc($username)} => sub {
 		my ($mango, $error, $doc) = @_;
 		die("DB error") if $error;
