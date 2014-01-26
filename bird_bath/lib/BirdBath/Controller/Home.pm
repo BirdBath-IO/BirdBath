@@ -8,6 +8,10 @@ use Net::Twitter;
 sub welcome {
   my $self = shift;
 
+  if(my $invite = $self->session('invite')) {
+		$self->stash(invite => $invite);
+	}
+
   $self->render();
 }
 

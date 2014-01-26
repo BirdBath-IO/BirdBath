@@ -17,6 +17,12 @@ sub startup {
   $r->get('/twitter')->to('twitter#twitter');
   $r->get('/twitter/callback')->to('twitter#callback'); 
 
+  $r->get('/invite/:username')->to(cb => sub {
+  	my $self = shift;
+  	$self->session(invite => $self->stash('username'));
+  	$self->redirect_to('/login');
+  });
+
   # View only or any auth user
   my $auth = $self->routes->find('auth');
   $auth->get('/manage')->to('manage#welcome');

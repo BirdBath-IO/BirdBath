@@ -1,5 +1,13 @@
 % layout 'default';
 % title 'Login';
+
+% if(stash('invite')) {
+	<div style="text-align: center; font-size: 1.2em; margin-bottom: 15px;">
+		<p>You have been invited to access <strong>@<%= stash('invite') %></strong> using BirdBath.</p>
+		<p>Please login to request access to the account.</p>
+	</div>
+% }
+
 <ul class="col-md-6">
 	<li><a href="/oauth2/login?provider=github" class="btn btn-block btn-social btn-lg btn-github"><i class="fa fa-github"></i>Sign in with GitHub</a></li>
 </ul>

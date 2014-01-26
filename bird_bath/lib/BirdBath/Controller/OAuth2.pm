@@ -6,6 +6,12 @@ use Data::Uniqid qw/ luniqid /;
 
 sub choose {
 	my $self = shift;
+
+	# TODO choose should probably not be in oauth2 controller
+	if(my $invite = $self->session('invite')) {
+		$self->stash(invite => $invite);
+	}
+
 	$self->render;
 }
 

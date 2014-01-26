@@ -46,7 +46,15 @@
 	      		<script>
 	      		var addTwitterCallback;
 	      		$(function() {
-	      			$('#twitter-username').hide();
+					$('#twitter-username').hide();
+
+	      			% if (stash('invite')) {
+	      				$('#add-twitter-no').prop('checked', true);
+	      				$('#twitter-username').val("<%= stash('invite') %>");
+	      				$('#twitter-username').css('display','block');
+	      				$('#twitter-dialog').modal('show');
+	      			% }
+
 	      			$('#twitter-add-error').hide();
 	      			$('#add-twitter-account').click(function() {
 	      				$('#twitter-dialog').modal('show');

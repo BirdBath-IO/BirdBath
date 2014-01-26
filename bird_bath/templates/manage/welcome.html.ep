@@ -237,7 +237,13 @@
 		</div>
 
 		<div ng-repeat="account in accounts" class="clearfix">
-			<h3>@{{ account.screen_name }}</h3>
+			<div>
+				<h3 style="display: inline-block">@{{ account.screen_name }}</h3>
+				<span style="margin-left: 20px;">
+					<strong>Invite</strong>
+					<span role="text" type="text" style="height: auto; padding: 2px; display: inline; width: auto;" readonly class="input-sm form-control">http://birdbath.io/invite/{{ account.screen_name }}</span>
+				</span>
+			</div>
 			<div ng-if="!account.$isOwnerOrAdmin" class="container">
 				<p>
 					This account belongs to <img ng-src="{{account.owner.avatar}}" style="height: 18px" /> <a href="//github.com/{{ account.owner.username }}">{{ account.owner.name }}</a>.

@@ -70,6 +70,10 @@ sub request {
 				return 0;
 			}
 
+			if(lc($self->session->{invite}) eq lc($username)) {
+				delete $self->session->{invite};
+			}
+
 			return $self->render(json => { ok => 1 });
 		});
 	});
