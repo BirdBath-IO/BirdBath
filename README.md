@@ -1,4 +1,6 @@
 BirdBath
 ========
 
-Washing the crap off your tweets.
+An open source tweet management and approval tool.
+
+http://birdbath.io

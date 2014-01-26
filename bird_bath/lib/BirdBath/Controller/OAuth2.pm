@@ -60,7 +60,6 @@ sub callback {
 						my ($mango, $error, $doc) = @_;
 						die("DB error") if $error;
 						die("Not updated") if !$doc->{n};
-						# TODO this is probably github specific
 						delete $profile->{profile};
 						$self->session->{user} = $profile;
 						$self->redirect_to('/');
