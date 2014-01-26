@@ -240,7 +240,7 @@
 			<h3>@{{ account.screen_name }}</h3>
 			<div ng-if="!account.$isOwnerOrAdmin" class="container">
 				<p>
-					This account belongs to <img src="{{ account.owner.avatar }}" style="height: 18px" /> <a href="//github.com/{{ account.owner.username }}">{{ account.owner.name }}</a>.
+					This account belongs to <img ng-src="{{account.owner.avatar}}" style="height: 18px" /> <a href="//github.com/{{ account.owner.username }}">{{ account.owner.name }}</a>.
 				</p>
 				<p ng-if="!account.request">
 					You are an account 
@@ -260,7 +260,7 @@
 				<span ng-repeat="role in roles">
 					<span ng-repeat="user in account.$byRole[role]" class="user list-group-item" data-drag="true" data-jqyoui-options="{revert: 'invalid'}" jqyoui-draggable="{animate:true}" ng-model="user">
 						<div style="margin-bottom: 8px;">
-							<img src="{{ user.avatar }}" style="height: 28px" /> 
+							<img ng-src="{{user.avatar}}" style="height: 28px" /> 
 							{{ user.name }}
 						</div>
 						<div>
@@ -296,7 +296,7 @@
 				</span>
 				<span ng-repeat="user in account.requests" class="user request list-group-item" data-drag="true" data-jqyoui-options="{revert: 'invalid'}" jqyoui-draggable="{animate:true}" ng-model="user">
 					<div style="margin-bottom: 8px;">
-						<img src="{{ user.avatar }}" style="height: 28px" /> 
+						<img ng-src="{{user.avatar}}" style="height: 28px" /> 
 						{{ user.name }}
 					</div>
 					<div>

@@ -21,7 +21,6 @@
 			$scope.canPost = false;
 			$scope.updateCanPost = function() {
 				for(var a in $scope.accounts) {
-				console.log($scope.accounts[a]);
 					if($scope.isContributorAdminOrEditor($scope.accounts[a])) {
 						$scope.canPost = true;
 						if(!$scope.selected_account) $scope.selected_account = $scope.accounts[a];
@@ -212,9 +211,9 @@
 			<form class="post_tweet padded" ng-init="type = 'Tweet'">
 				<div class="input-group">
 					<div class="input-group-btn">
-				        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><img src="{{ selected_account.profile.image_url }}" style="width: 18px" /> {{ selected_account.profile.name }} <span class="caret"></span></button>
+				        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><img ng-src="{{selected_account.profile.image_url}}" style="width: 18px" /> {{ selected_account.profile.name }} <span class="caret"></span></button>
 				        <ul class="dropdown-menu">
-				          <li ng-click="selectAccount(account)" ng-repeat="account in accounts | filter:isContributorAdminOrEditor" style="padding: 3px 10px"><img src="{{ account.profile.image_url }}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
+				          <li ng-click="selectAccount(account)" ng-repeat="account in accounts | filter:isContributorAdminOrEditor" style="padding: 3px 10px"><img ng-src="{{account.profile.image_url}}" style="width: 24px" /> {{ account.profile.name }} (@{{ account.screen_name }})</li>
 				        </ul>
 				    </div>
 				    <div class="input-group-btn">
@@ -229,7 +228,7 @@
 			    		<a href="#" ng-click="findTweet()"><span class="glyphicon glyphicon-search"></span> Find a tweet</a>
 			    	</span>
 			    	<span ng-if="type == 'Retweet' && selected_tweet != null" class="form-control">
-			    		<img src="{{ selected_tweet.user.profile_image_url }}" style="height: 16px" />
+			    		<img ng-src="{{selected_tweet.user.profile_image_url}}" style="height: 16px" />
 			    		@{{ selected_tweet.user.screen_name }}
 			    		{{ selected_tweet.text }}
 			    	</span>
@@ -273,7 +272,7 @@
 		        <div class="results">
 		        	<div ng-if="loading">Please wait, loading</div>
 		        	<div ng-click="selectTweet(tweet)" class="result {{ tweet.$selected ? 'selected' : '' }}" ng-repeat="tweet in search_results">
-		        		<img src="{{ tweet.user.profile_image_url }}" />
+		        		<img ng-src="{{tweet.user.profile_image_url}}" />
 		        		@{{ tweet.user.screen_name}}
 		        		{{ tweet.text }}
 		        		{{ tweet.retweeted == 1 ? "(Retweet)" : ""}}
@@ -293,7 +292,7 @@
 		    <div class="modal-content">
 		      <div class="modal-header">
 		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-		        <h4 class="modal-title"><img src="{{ approving.account.avatar }}" /> Tweet from @{{ approving.account.screen_name }}</h4>
+		        <h4 class="modal-title"><img ng-src="{{approving.account.avatar}}" /> Tweet from @{{ approving.account.screen_name }}</h4>
 		      </div>
 		      <div class="modal-body" ng-if="!approving.retweet">
 		        <h2>Are you sure you want to tweet this message using @{{ approving.account.screen_name }}?</h2>
@@ -304,7 +303,7 @@
 		      <div class="modal-body" ng-if="approving.retweet">
 		        <h2>Are you sure you want to retweet this message using @{{ approving.account.screen_name }}?</h2>
 		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
-		        	<img src="{{ approving.tweet.user.profile_image_url }}" style="height: 28px" /> 
+		        	<img ng-src="{{approving.tweet.user.profile_image_url}}" style="height: 28px" /> 
 		        	<a href="//twitter.com/{{ approving.tweet.user.screen_name }}">@{{ approving.tweet.user.screen_name }}</a> 
 		        	{{ approving.tweet.text }}
 		        </h3>
@@ -390,19 +389,22 @@
 								<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
 								<button class="btn btn-sm btn-danger" ng-click="reject(tweet)" ng-if="tweet.status != 'Approved'">Reject</button>
 							</span>
+							<span ng-if="!isAdminOrEditor(getAccount(tweet.account.screen_name))">
+								Awaiting approval
+							</span>
 						</span>
 					</div>
-					<img src="{{ tweet.user.avatar }}&s=18" style="width: 18px" />
+					<img ng-src="{{tweet.user.avatar}}" style="width: 18px" />
 					<!-- TODO github specific -->
 					<a href="//github.com/{{ tweet.user.username }}">{{ tweet.user.name }}</a>
 					<span ng-if="tweet.retweet">
 						retweeted 
-						<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 18px; margin-left: 4px;" />
+						<img ng-src="{{tweet.tweet.user.profile_image_url}}" style="width: 18px; margin-left: 4px;" />
 						 <a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a> 
 						from 
 						</span>
 					<span ng-if="!tweet.retweet">tweeted from </span>
-					<img src="{{ tweet.account.avatar }}" style="width: 18px; margin-left: 4px;" />
+					<img ng-src="{{tweet.account.avatar}}" style="width: 18px; margin-left: 4px;" />
 					<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
 					 about 
 					{{ fromNow(tweet.created) }}
@@ -414,7 +416,7 @@
 					</span>
 				</div>
 				<div class="panel-body" ng-if="tweet.retweet">
-					<img src="{{ tweet.tweet.user.profile_image_url }}" style="width: 28px; margin-left: 4px;" />
+					<img ng-src="{{tweet.tweet.user.profile_image_url}}" style="width: 28px; margin-left: 4px;" />
 					<a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a>
 					{{ tweet.tweet.text }}
 				</div>
