@@ -54,23 +54,80 @@ sub startup {
   	return $self->redirect_to('/login') unless $self->session->{user};
   	return 1;
   });
+  my $account = $auth->bridge->to(cb => sub {
+  	my $self = shift;
+  	my $args = { 
+  		screen_name_lc => lc($self->req->json->{account}),
+  		'users.id' => $self->session->{user}->{id},
+  		'users.provider' => $self->session->{user}->{provider},
+  	};
+  	$self->accounts->find_one($args => sub {
+  		my ($mango, $error, $doc) = @_;
+  		die("DB error") if $error;
+  		die("Not found") if !$doc;
+  		$self->stash(account => $doc);
+  		my $u;
+  		for my $user (@{$doc->{users}}) {
+	  		if($user->{id} eq $self->session->{user}->{id} &&
+	  		   $user->{provider} eq $self->session->{user}->{provider}) {
+	  			$u = $user;
+	  			last;
+	  		}
+	  	}
+	  	$self->stash(account_user => $u);
+  		$self->continue;
+  	});
+  	return undef;
+  });
+  my $contributor = $account->bridge->to(cb => sub {
+  	my $self = shift;
+  	my $u = $self->stash('account_user');
+  	
+  	die("Not a contributor") if !$u;
+  	die("Not a contributor") if $u->{role} !~ /^(admin|editor|contributor)$/;
+  	return 1;
+  });
+  my $editor = $account->bridge->to(cb => sub {
+  	my $self = shift;
+  	my $u = $self->stash('account_user');
+  	
+  	die("Not a editor") if !$u;
+  	die("Not a editor") if $u->{role} !~ /^(admin|editor)$/;
+  	return 1;
+  });
+  my $admin = $account->bridge->to(cb => sub {
+  	my $self = shift;
+  	my $u = $self->stash('account_user');
+  	
+  	die("Not a admin") if !$u;
+  	die("Not a admin") if $u->{role} !~ /^(admin)$/;
+  	return 1;
+  });
+
+  # View only or any auth user
   $auth->get('/manage')->to('manage#welcome');
   $auth->get('/tweets')->to('home#tweets');
-  $auth->post('/tweets')->to('home#tweet');
   $auth->get('/accounts')->to('home#accounts');
-  $auth->post('/approve')->to('home#approve');
-  $auth->post('/reject')->to('home#reject');
-  $auth->post('/undo')->to('home#undo');
-  $auth->post('/update')->to('home#update');
   $auth->post('/request')->to('home#request');
   $auth->post('/search')->to('search#search');
   $auth->post('/timeline')->to('search#timeline');
-  $auth->post('/retweet')->to('home#retweet');
-  $auth->post('/user-approve')->to('home#accept_user');
-  $auth->post('/user-reject')->to('home#reject_user');
-  $auth->post('/user-save')->to('home#save_user');
   $auth->post('/account-remove')->to('home#remove_account');
-  $auth->post('/user-remove')->to('home#remove_user');
+
+  # Contributor only
+  $contributor->post('/tweets')->to('home#tweet');
+  $contributor->post('/retweet')->to('home#retweet');
+
+  # Editor only
+  $editor->post('/approve')->to('home#approve');
+  $editor->post('/reject')->to('home#reject');
+  $editor->post('/undo')->to('home#undo');
+  $editor->post('/update')->to('home#update');
+
+  # Admin only
+  $admin->post('/user-approve')->to('home#accept_user');
+  $admin->post('/user-reject')->to('home#reject_user');
+  $admin->post('/user-save')->to('home#save_user');  
+  $admin->post('/user-remove')->to('home#remove_user');
 }
 
 1;

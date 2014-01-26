@@ -120,7 +120,7 @@
 			}
 
 			$scope.reject = function(tweet) {
-				$http.post('/reject', { tweet: tweet._id }).success(function(d) {
+				$http.post('/reject', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
 					for(var v in d) {
 						tweet[v] = d[v];
 					}
@@ -129,7 +129,7 @@
 
 			$scope.confirmApprove = function() {
 				var tweet = $scope.approving;
-				$http.post('/approve', { tweet: tweet._id }).success(function(d) {
+				$http.post('/approve', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
 					for(var v in d) {
 						tweet[v] = d[v];
 					}
@@ -138,7 +138,7 @@
 			}
 
 			$scope.save = function(tweet) {
-				$http.post('/update', { id: tweet._id, message: tweet.message, account: tweet.account }).success(function(d) {
+				$http.post('/update', { id: tweet._id, message: tweet.message, account: tweet.account.screen_name }).success(function(d) {
 					tweet.$editing = false;
 				});
 			}
@@ -158,7 +158,7 @@
 			}
 
 			$scope.undoReject = function(tweet) {
-				$http.post('/undo', { tweet: tweet._id }).success(function(d) {
+				$http.post('/undo', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
 					for(var v in d) {
 						tweet[v] = d[v];
 					}
