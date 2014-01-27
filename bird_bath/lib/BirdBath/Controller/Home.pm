@@ -340,6 +340,44 @@ sub tweet {
 	$self->render_later;
 }
 
+sub deletion {
+	my $self = shift;
+
+	my $tweet = $self->req->json->{tweet};
+	my $account = $self->req->json->{account};
+
+	$self->app->accounts->find_one({ screen_name => $account } => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		$self->app->tweets->insert({
+			user => {
+				provider => $self->session->{user}->{provider},
+			    id => $self->session->{user}->{id},
+			    avatar => $self->session->{user}->{avatar},
+			    name => $self->session->{user}->{name},
+			    username => $self->session->{user}->{username},
+			},
+			account => {
+				screen_name => $account,
+				name => $doc->{profile}->{name},
+				avatar => $doc->{profile}->{profile_image_url},
+			},
+			tweet => $tweet,
+			created => bson_time,
+			status => 'Unapproved',
+			deletion => 1,
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			$self->render(text => '', status => 201);
+		});
+	});
+
+	$self->render_later;
+}
+
 sub update {
 	my $self = shift;
 
@@ -513,6 +551,9 @@ sub approve {
 					if($tweet->{retweet}) {
 						print "Retweeting\n";
 						$nt->retweet({id => $tweet->{tweet}->{id_str}});
+					} elsif ($tweet->{deletion}) {
+						print "Deleting\n";
+						$nt->destroy_status({id => $tweet->{tweet}->{id_str}});
 					} else {
 						print "Tweeting\n";
 						$nt->update({status => $tweet->{message}});

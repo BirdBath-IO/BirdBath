@@ -102,8 +102,17 @@
 				$('#add-twitter-account').click();
 			}
 
+			$scope.doSend = function(type) {
+				if(type == 'Tweet') {
+					$scope.sendTweet()
+				} else if(type == 'Retweet') {
+					$scope.sendRetweet()
+				} else if(type == 'Delete') {
+					$scope.sendDelete();
+				}
+			}
+
 			$scope.sendTweet = function() {
-			console.log($scope);
 				$http.post('/tweets', { message: $scope.message, account: $scope.selected_account.screen_name }).success(function(d) {
 					$scope.message = "";
 					$scope.getTweets();
@@ -112,6 +121,14 @@
 
 			$scope.sendRetweet = function() {
 				$http.post('/retweet', { tweet: $scope.selected_tweet, account: $scope.selected_account.screen_name }).success(function(d) {
+					$scope.selected_tweet.$selected = false;
+					$scope.selected_tweet = null;
+					$scope.getTweets();
+				});
+			}
+
+			$scope.sendDelete = function() {
+				$http.post('/deletion', { tweet: $scope.selected_tweet, account: $scope.selected_account.screen_name }).success(function(d) {
 					$scope.selected_tweet.$selected = false;
 					$scope.selected_tweet = null;
 					$scope.getTweets();
@@ -199,6 +216,14 @@
 			$scope.findTweet = function() {
 				$('#find-tweet-dialog').modal('show');
 			}
+			$scope.findTweetDelete = function() {
+				$http.post('/timeline', { username: $scope.selected_account.screen_name }).success(function(d) {
+					$scope.delete_results = d;
+					$scope.loading = false;
+				});
+				$('#delete-tweet-dialog').modal('show');
+				$scope.loading = true;
+			}
 			$scope.selected_tweet = null;
 			$scope.clearSelected = function() {
 				$scope.selected_tweet.$selected = false;
@@ -213,7 +238,9 @@
 			}
 			$scope.confirmSelect = function() {
 				$('#find-tweet-dialog').modal('hide');
-
+			}
+			$scope.confirmSelectDelete = function() {
+				$('#delete-tweet-dialog').modal('hide');
 			}
 			$scope.updateSearch = function() {
 				$scope.loading = true;
@@ -260,20 +287,29 @@
 				        <ul class="dropdown-menu">
 				          <li ng-click="type = 'Tweet'" style="padding: 3px 10px">Tweet</li>
 				          <li ng-click="type = 'Retweet'" style="padding: 3px 10px">Retweet</li>
+				          <li ng-click="type = 'Delete'" style="padding: 3px 10px">Delete</li>
 				        </ul>
 				    </div>
 				    <button ng-click="clearSelected()" ng-if="selected_tweet != null" class="form-control btn btn-default"><span class="glyphicon glyphicon-remove"></span></button>
 				    <span ng-if="type == 'Retweet' && selected_tweet == null" class="form-control">
 			    		<a href="#" ng-click="findTweet()"><span class="glyphicon glyphicon-search"></span> Find a tweet</a>
 			    	</span>
+			    	<span ng-if="type == 'Delete' && selected_tweet == null" class="form-control">
+			    		<a href="#" ng-click="findTweetDelete()"><span class="glyphicon glyphicon-search"></span> Select a tweet to delete from @{{ selected_account.screen_name }}</a>
+			    	</span>
 			    	<span ng-if="type == 'Retweet' && selected_tweet != null" class="form-control">
+			    		<img ng-src="{{selected_tweet.user.profile_image_url}}" style="height: 16px" />
+			    		@{{ selected_tweet.user.screen_name }}
+			    		{{ selected_tweet.text }}
+			    	</span>
+			    	<span ng-if="type == 'Delete' && selected_tweet != null" class="form-control">
 			    		<img ng-src="{{selected_tweet.user.profile_image_url}}" style="height: 16px" />
 			    		@{{ selected_tweet.user.screen_name }}
 			    		{{ selected_tweet.text }}
 			    	</span>
 			    	<input ng-if="type == 'Tweet'" type="text" class="form-control" ng-model="$parent.$parent.message" placeholder="Post a tweet" />
 					<span class="input-group-btn">
-						<button type="submit" ng-click="type == 'Tweet' ? sendTweet() : sendRetweet()" class="btn btn-default">Post</button>
+						<button type="submit" ng-click="doSend(type)" class="btn btn-default">Post</button>
 					</span>
 				</div>
 			</form>
@@ -326,14 +362,43 @@
 		  </div>
 		</form>
 
+		<form class="modal fade" id="delete-tweet-dialog">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+		        <h4 class="modal-title">Delete a tweet</h4>
+		      </div>
+		      <div class="modal-body">
+		        <div class="results">
+		        	<div ng-if="loading">Please wait, loading</div>
+		        	<div ng-click="selectTweet(tweet)" class="result {{ tweet.$selected ? 'selected' : '' }}" ng-repeat="tweet in delete_results">
+		        		<img ng-src="{{tweet.user.profile_image_url}}" />
+		        		@{{ tweet.user.screen_name}}
+		        		{{ tweet.text }}
+		        		{{ tweet.retweeted == 1 ? "(Retweet)" : ""}}
+		        	</div>
+		        </div>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+		        <button ng-disabled="selected_tweet == null" type="button" class="btn btn-primary" ng-click="confirmSelectDelete()">Select</button>
+		      </div>
+		    </div>
+		  </div>
+		</form>
+
 		<div class="modal fade" id="approve-dialog">
 		  <div class="modal-dialog">
 		    <div class="modal-content">
 		      <div class="modal-header">
 		        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-		        <h4 class="modal-title"><img ng-src="{{approving.account.avatar}}" /> Tweet from @{{ approving.account.screen_name }}</h4>
+		        <h4 class="modal-title"><img ng-src="{{approving.account.avatar}}" /> 
+		        <span ng-if="approving.retweet">Retweet</span>
+		        <span ng-if="approving.deletion">Delete</span>
+		        <span ng-if="!approving.deletion && !approving.retweet">Tweet</span> from @{{ approving.account.screen_name }}</h4>
 		      </div>
-		      <div class="modal-body" ng-if="!approving.retweet">
+		      <div class="modal-body" ng-if="!approving.retweet && !approving.deletion">
 		        <h2>Are you sure you want to tweet this message using @{{ approving.account.screen_name }}?</h2>
 		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
 		        	{{ approving.message }}
@@ -341,6 +406,14 @@
 		      </div>
 		      <div class="modal-body" ng-if="approving.retweet">
 		        <h2>Are you sure you want to retweet this message using @{{ approving.account.screen_name }}?</h2>
+		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
+		        	<img ng-src="{{approving.tweet.user.profile_image_url}}" style="height: 28px" /> 
+		        	<a href="//twitter.com/{{ approving.tweet.user.screen_name }}">@{{ approving.tweet.user.screen_name }}</a> 
+		        	{{ approving.tweet.text }}
+		        </h3>
+		      </div>
+		      <div class="modal-body" ng-if="approving.deletion">
+		        <h2>Are you sure you want to delete this message from @{{ approving.account.screen_name }}?</h2>
 		        <h3 style="padding: 30px; border: 1px solid #cccccc; border-radius: 10px">
 		        	<img ng-src="{{approving.tweet.user.profile_image_url}}" style="height: 28px" /> 
 		        	<a href="//twitter.com/{{ approving.tweet.user.screen_name }}">@{{ approving.tweet.user.screen_name }}</a> 
@@ -459,20 +532,30 @@
 						<img ng-src="{{tweet.tweet.user.profile_image_url}}" style="width: 18px; margin-left: 4px;" />
 						 <a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a> 
 						from 
-						</span>
-					<span ng-if="!tweet.retweet">tweeted from </span>
-					<img ng-src="{{tweet.account.avatar}}" style="width: 18px; margin-left: 4px;" />
-					<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
-					 about 
-					{{ fromNow(tweet.created) }}
+						<img ng-src="{{tweet.account.avatar}}" style="width: 18px; margin-left: 4px;" />
+						<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
+						 about {{ fromNow(tweet.created) }}
+					</span>
+					<span ng-if="tweet.deletion">
+						deleted a tweet from
+						<img ng-src="{{tweet.account.avatar}}" style="width: 18px; margin-left: 4px;" />
+						<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
+						 about {{ fromNow(tweet.created) }}
+					</span>
+					<span ng-if="!tweet.retweet && !tweet.deletion">
+						tweeted from 
+						<img ng-src="{{tweet.account.avatar}}" style="width: 18px; margin-left: 4px;" />
+						<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{ tweet.account.screen_name }}</a>
+						 about {{ fromNow(tweet.created) }}
+					</span>					
 				</div>
-				<div class="panel-body" ng-if="!tweet.retweet">
+				<div class="panel-body" ng-if="!tweet.retweet && !tweet.deletion">
 					<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
 					<span ng-if="tweet.$editing">
 						<input autofocus type="text" class="form-control input-lg" ng-model="tweet.message" />
 					</span>
 				</div>
-				<div class="panel-body" ng-if="tweet.retweet">
+				<div class="panel-body" ng-if="tweet.retweet || tweet.deletion">
 					<img ng-src="{{tweet.tweet.user.profile_image_url}}" style="width: 28px; margin-left: 4px;" />
 					<a href="//twitter.com/{{ tweet.tweet.user.screen_name }}">@{{tweet.tweet.user.screen_name}}</a>
 					{{ tweet.tweet.text }}
