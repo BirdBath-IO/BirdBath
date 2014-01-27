@@ -550,6 +550,8 @@
 					</span>					
 				</div>
 				<div class="panel-body" ng-if="!tweet.retweet && !tweet.deletion">
+					<img ng-src="{{tweet.account.avatar}}" style="width: 28px; margin-left: 4px;" />
+					<a href="//twitter.com/{{ tweet.account.screen_name }}">@{{tweet.account.screen_name}}</a>
 					<span ng-if="!tweet.$editing">{{ tweet.message }}</span>
 					<span ng-if="tweet.$editing">
 						<input autofocus type="text" class="form-control input-lg" ng-model="tweet.message" />
