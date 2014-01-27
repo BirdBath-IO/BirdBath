@@ -37,6 +37,8 @@ sub startup {
   my $contributor = $self->routes->find('contributor');
   $contributor->post('/tweets')->to('home#tweet');
   $contributor->post('/retweet')->to('home#retweet');
+  $contributor->post('/delete')->to('home#delete');
+  $contributor->post('/undelete')->to('home#undelete');
 
   # Editor only
   my $editor = $self->routes->find('editor');

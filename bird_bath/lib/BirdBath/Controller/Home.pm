@@ -2,7 +2,7 @@ package BirdBath::Controller::Home;
 
 use Mojo::Base 'Mojolicious::Controller';
 
-use Mango::BSON qw/ bson_oid bson_time/;
+use Mango::BSON qw/ bson_oid bson_time bson_true bson_false /;
 use Net::Twitter;
 
 sub welcome {
@@ -85,6 +85,8 @@ sub accounts {
 sub tweets {
 	my $self = shift;
 
+	my $deleted = $self->req->url->query->param('deleted') // 0;
+
 	my $cursor = $self->app->accounts->find({
 		'users.provider' => $self->session->{user}->{provider},
 		'users.id' => $self->session->{user}->{id},
@@ -96,12 +98,18 @@ sub tweets {
 
 		my @accounts = map { $_->{screen_name} } @$docs;
 
+		my %args = ();
+		if(!$deleted) {
+			$args{deleted} = { '$exists' => bson_false };
+		}
+
 		my $cursor = $self->app->tweets->find({
 			'account.screen_name' => {
 				'$in' => \@accounts,
-			}
+			},
+			%args
 		})->sort({created => -1});
-		$cursor->all(sub {
+		$cursor->limit(50)->all(sub {
 			my ($mango, $error, $docs) = @_;
 
 			die("DB error") if $error;
@@ -114,6 +122,144 @@ sub tweets {
 
 			$self->render(json => $docs);
 		});
+	});
+
+	$self->render_later;
+}
+
+sub delete {
+	my $self = shift;
+
+	my $account = $self->req->json->{account};
+	my $id = $self->req->json->{tweet};
+
+	$self->app->accounts->find_one({ screen_name_lc => lc($account) } => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $self->session->{user}->{id} &&
+			   $u->{provider} eq $self->session->{user}->{provider}) {
+				$user = $u;
+				last;
+			}
+		}
+
+		my $can_delete = $user && $user->{role} =~ /^(admin|editor)$/;
+		my %args = ();
+
+		if(!$can_delete) {
+			$args{'user.id'} = $self->session->{user}->{id};
+			$args{'user.provider'} = $self->session->{user}->{provider};
+		}
+
+		$self->app->tweets->update({
+			_id => bson_oid($id),
+			%args
+		},{
+			'$set' => {
+				'status' => 'Deleted',
+				'deleted' => bson_time,
+				'deleted_by' => {
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
+				}
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			die("Not permitted") if !$doc->{n};
+			$self->render(json => {
+				'ok' => 1,
+				'status' => 'Deleted',
+				'deleted' => bson_time,
+				'deleted_by' => {
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
+				}
+			}, status => 200);
+		});
+
+	});
+
+	$self->render_later;
+}
+
+sub undelete {
+	my $self = shift;
+
+	my $account = $self->req->json->{account};
+	my $id = $self->req->json->{tweet};
+
+	$self->app->accounts->find_one({ screen_name_lc => lc($account) } => sub {
+		my ($mango, $error, $doc) = @_;
+		die("DB error") if $error;
+		die("Not found") if !$doc;
+
+		my $user;
+		for my $u (@{$doc->{users}}) {
+			if($u->{id} eq $self->session->{user}->{id} &&
+			   $u->{provider} eq $self->session->{user}->{provider}) {
+				$user = $u;
+				last;
+			}
+		}
+
+		my $can_delete = $user && $user->{role} =~ /^(admin|editor)$/;
+		my %args = ();
+
+		if(!$can_delete) {
+			$args{'user.id'} = $self->session->{user}->{id};
+			$args{'user.provider'} = $self->session->{user}->{provider};
+		}
+
+		$self->app->tweets->update({
+			_id => bson_oid($id),
+			%args
+		},{
+			'$set' => {
+				'status' => 'Unapproved',
+				'undeleted' => bson_time,
+				'undeleted_by' => {
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
+				}
+			},
+			'$unset' => {
+				'deleted' => 1,
+				'deleted_by' => 1,
+			}
+		} => sub {
+			my ($mango, $error, $doc) = @_;
+			die("DB error") if $error;
+			die("Not permitted") if !$doc->{n};
+			$self->render(json => {
+				'ok' => 1,
+				'status' => 'Unapproved',
+				'deleted' => 0,
+				'deleted_by' => {},
+				'undeleted' => bson_time,
+				'undeleted_by' => {
+					provider => $self->session->{user}->{provider},
+				    id => $self->session->{user}->{id},
+				    avatar => $self->session->{user}->{avatar},
+				    name => $self->session->{user}->{name},
+				    username => $self->session->{user}->{username},
+				}
+			}, status => 200);
+		});
+
 	});
 
 	$self->render_later;
@@ -197,9 +343,6 @@ sub tweet {
 sub update {
 	my $self = shift;
 
-	# TODO do this properly
-	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
-
 	my $id = $self->req->json->{id};
 	my $message = $self->req->json->{message};
 	my $account = $self->req->json->{account};
@@ -245,9 +388,6 @@ sub update {
 sub reject {
 	my $self = shift;
 
-	# TODO do this properly
-	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
-
 	my $message = $self->req->json->{tweet};
 	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {
 		my ($mango, $error, $tweet) = @_;
@@ -290,9 +430,6 @@ sub reject {
 
 sub undo {
 	my $self = shift;
-
-	# TODO do this properly
-	die("Unauthorised") if $self->session->{user}->{_birdbath}->{role} eq 'Contributor';
 
 	my $message = $self->req->json->{tweet};
 	$self->app->tweets->find_one({_id => bson_oid($message)} => sub {

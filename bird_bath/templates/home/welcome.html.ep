@@ -35,7 +35,11 @@
 			}
 
 			$scope.getTweets = function() {
-				$http.get('/tweets').success(function(d) {
+				var url = '/tweets';
+				if($('#include-deleted').prop('checked')) {
+					url += '?deleted=1';
+				}
+				$http.get(url).success(function(d) {
 					$scope.tweets = d;
 				});
 			};
@@ -127,6 +131,32 @@
 				});				
 			}
 
+			$scope.delete = function(tweet) {
+				$http.post('/delete', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
+					for(var v in d) {
+						tweet[v] = d[v];
+					}
+					if(!$('#include-deleted').prop('checked')) {
+						$timeout(function() {
+							for(var t in $scope.tweets) {
+								if($scope.tweets[t]._id == tweet._id) {
+									$scope.tweets.splice(t,1);
+									break;
+								}
+							}
+						}, 5000);
+					}
+				});
+			}
+
+			$scope.undelete = function(tweet) {
+				$http.post('/undelete', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
+					for(var v in d) {
+						tweet[v] = d[v];
+					}
+				});
+			}
+
 			$scope.confirmApprove = function() {
 				var tweet = $scope.approving;
 				$http.post('/approve', { tweet: tweet._id, account: tweet.account.screen_name }).success(function(d) {
@@ -203,6 +233,14 @@
 						$scope.loading = false;
 					});
 				}
+			}
+
+			$scope.canDelete = function(tweet) {
+				if(tweet.deleted) return false;
+				if($scope.isAdminOrEditor($scope.getAccount(tweet.account.screen_name))) return true;
+				if(tweet.status == 'Approved') return false;
+				if(tweet.user.id == user.id && tweet.user.provider == user.provider) return true;
+				return false;
 			}
 		});
 	</script>
@@ -329,6 +367,14 @@
 			<a href="/manage" class="btn btn-primary">Manage your accounts</a> <button ng-click="addTwitter()" class="btn btn-primary">Add another twitter account</button>
 		</div>
 		<div ng-if="tweets.length > 0">
+			<span class="pull-right" style="margin-right: 20px; margin-top: 20px;">
+				<div class="checkbox">
+					<label for="include-deleted">
+						<input type="checkbox" ng-model="includeDeleted" ng-change="getTweets()" id="include-deleted" />
+						Include deleted tweets
+					</label>
+				</div>
+			</span>
 			<h2>Tweets</h2>
 
 			<style>
@@ -365,11 +411,18 @@
 				.input-group-btn {
 					vertical-align: top;
 				}
+				.tweet .deleted {
+					background-image: linear-gradient(to bottom, #f5a5a5 0%, #e8e8e8 100%);
+				}
 			</style>
 
 			<div ng-repeat="tweet in tweets" class="tweet margined panel panel-default">
-				<div class="panel-heading">
+				<div class="panel-heading {{ tweet.deleted ? 'deleted' : '' }}">
 					<div class="pull-right" ng-switch="tweet.status">
+						<span ng-switch-when="Deleted" class="deleted_by">
+							Deleted by {{ tweet.deleted_by.name }} about {{ fromNow(tweet.deleted) }}
+							<button class="btn btn-sm btn-danger" ng-click="undelete(tweet)" ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">Undelete</button>
+						</span>
 						<span ng-switch-when="Approved" class="approved_by">
 							Approved by {{ tweet.approved_by.name }} about {{ fromNow(tweet.approved) }}
 						</span>
@@ -381,7 +434,7 @@
 							<span ng-if="tweet.last_edit" class="last-edit">
 								Edited by {{ tweet.last_edit.edited_by.name }} about {{ fromNow(tweet.last_edit.edited) }}
 							</span>
-							<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name))">
+							<span ng-if="isAdminOrEditor(getAccount(tweet.account.screen_name)) && !tweet.deleted">
 								<button ng-if="!tweet.retweet" class="btn btn-sm btn-default" ng-click="editOrSave(tweet)" ng-if="tweet.status != 'Approved' && !tweet.$editing">Edit</button>
 
 								<button class="btn btn-sm btn-default" ng-click="cancelEdit(tweet)" ng-if="tweet.$editing">Cancel</button>
@@ -390,6 +443,9 @@
 								<button class="btn btn-sm btn-primary" ng-click="approve(tweet)" ng-if="tweet.status != 'Approved'">Approve</button>
 								<button class="btn btn-sm btn-danger" ng-click="reject(tweet)" ng-if="tweet.status != 'Approved'">Reject</button>
 							</span>
+
+							<button class="btn btn-sm btn-danger" ng-click="delete(tweet)" ng-if="canDelete(tweet)">Delete</button>
+
 							<span ng-if="!isAdminOrEditor(getAccount(tweet.account.screen_name))">
 								Awaiting approval
 							</span>
